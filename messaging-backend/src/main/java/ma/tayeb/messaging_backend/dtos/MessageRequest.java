@@ -8,4 +8,6 @@ public class MessageRequest {
     private String content;
     private UUID senderId;
     private UUID conversationId;
+    private UUID replyTo;
+    private String fileUrl;
 } 

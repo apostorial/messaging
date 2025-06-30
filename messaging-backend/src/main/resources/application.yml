@@ -10,11 +10,11 @@ spring:
         password: 123
     jpa:
         hibernate:
-            ddl-auto: create-drop
-            # ddl-auto: update
+            # ddl-auto: create-drop
+            ddl-auto: update
 
 minio:
   endpoint: http://localhost:9000
-  access-key: minioadmin
-  secret-key: minioadmin
+  access-key: tmdl_minio
+  secret-key: tmdl_minio
   bucket-name: files

@@ -27,8 +27,10 @@ public class Message {
     @Enumerated(EnumType.STRING)
     private SenderType senderType;
     @Enumerated(EnumType.STRING)
-    private MessageType type;
+    private MessageType messageType;
     private String fileUrl;
+    private UUID replyTo;
+    private boolean edited = false;
 
     @ManyToOne
     private Conversation conversation;

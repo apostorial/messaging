@@ -12,6 +12,9 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import lombok.RequiredArgsConstructor;
 import ma.tayeb.messaging_backend.dtos.MessageRequest;
@@ -55,7 +58,8 @@ public class MessageController {
         message.setSenderType(senderType);
         message.setContent(chatMessage.getContent());
         message.setTimestamp(LocalDateTime.now());
-        message.setType(MessageType.TEXT);
+        message.setMessageType(MessageType.TEXT);
+        message.setReplyTo(chatMessage.getReplyTo());
 
         Message savedMessage = messageRepository.save(message);
         messagingTemplate.convertAndSend("/topic/conversation/" + savedMessage.getConversation().getId(), savedMessage);
@@ -64,35 +68,51 @@ public class MessageController {
     @PostMapping("/upload")
     public void uploadFile(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("senderId") UUID senderId,
-            @RequestParam("conversationId") UUID conversationId) {
+            @ModelAttribute MessageRequest messageRequest) {
 
-        SenderType senderType = determineSenderType(senderId);
-
-        Conversation conversation = conversationRepository.findById(conversationId)
+        SenderType senderType = determineSenderType(messageRequest.getSenderId());
+        Conversation conversation = conversationRepository.findById(messageRequest.getConversationId())
                 .orElseThrow(() -> new RuntimeException("Conversation not found"));
-        
         String fileUrl = fileService.upload(file);
-
         Message message = new Message();
         message.setId(UUID.randomUUID());
         message.setConversation(conversation);
-        message.setSenderId(senderId);
+        message.setSenderId(messageRequest.getSenderId());
         message.setSenderType(senderType);
         message.setFileUrl(fileUrl);
         message.setTimestamp(LocalDateTime.now());
-        
+        message.setReplyTo(messageRequest.getReplyTo());
+        message.setContent(messageRequest.getContent());
         String contentType = file.getContentType();
         if (contentType != null && contentType.startsWith("image")) {
-            message.setType(MessageType.IMAGE);
-            message.setContent(file.getOriginalFilename());
+            message.setMessageType(MessageType.IMAGE);
         } else {
-            message.setType(MessageType.DOCUMENT);
-            message.setContent(file.getOriginalFilename());
+            message.setMessageType(MessageType.DOCUMENT);
         }
-
         Message savedMessage = messageRepository.save(message);
         messagingTemplate.convertAndSend("/topic/conversation/" + savedMessage.getConversation().getId(), savedMessage);
+    }
+
+    @PutMapping("/messages/{id}")
+    public Message editMessage(@PathVariable UUID id, @RequestBody MessageRequest messageRequest) {
+        Message message = messageRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Message not found"));
+        message.setContent(messageRequest.getContent());
+        message.setEdited(true);
+        Message savedMessage = messageRepository.save(message);
+        messagingTemplate.convertAndSend("/topic/conversation/" + savedMessage.getConversation().getId(), savedMessage);
+        return savedMessage;
+    }
+
+    @PutMapping("/messages/{id}/edit")
+    public Message editMessageContent(@PathVariable UUID id, @RequestParam("content") String content) {
+        Message message = messageRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Message not found"));
+        message.setContent(content);
+        message.setEdited(true);
+        Message savedMessage = messageRepository.save(message);
+        messagingTemplate.convertAndSend("/topic/conversation/" + savedMessage.getConversation().getId(), savedMessage);
+        return savedMessage;
     }
 
     private SenderType determineSenderType(UUID senderId) {

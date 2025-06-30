@@ -38,7 +38,7 @@ public class FileService {
 
             s3Client.putObject(putRequest, RequestBody.fromBytes(file.getBytes()));
 
-            return fileId;
+            return "http://localhost:9000/" + bucketName + "/" + fileId;
         } catch (Exception e) {
             throw new RuntimeException("Failed to upload file: " + e.getMessage(), e);
         }
