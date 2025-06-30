@@ -1,0 +1,12 @@
+spring:
+    application:
+        name: messaging-backend
+    data:
+        mongodb:
+            host: localhost
+            port: 27017
+            database: messaging_db
+    servlet:
+        multipart:
+            max-file-size: 10MB
+            max-request-size: 10MB
