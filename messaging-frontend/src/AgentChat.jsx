@@ -54,6 +54,25 @@ function AgentChat({ conversationId, agentId, agents = [], customers = [] }) {
             }
             return [...prevMessages, receivedMessage];
           });
+
+          // If the message is from a customer, mark as read immediately
+          if (!agents.some(a => a.id === receivedMessage.senderId)) {
+            fetch(`http://localhost:8080/conversations/${conversationId}/read?readerType=AGENT`, { method: 'PUT' })
+              .then(() => {
+                fetch(`http://localhost:8080/conversations/${conversationId}/messages`)
+                  .then(response => response.json())
+                  .then(data => setMessages(data));
+              });
+          }
+        });
+        // Subscribe to read receipt events
+        client.subscribe(`/topic/conversation/${conversationId}/read-receipt`, (message) => {
+          const readIds = JSON.parse(message.body);
+          setMessages(prevMessages =>
+            prevMessages.map(msg =>
+              readIds.includes(msg.id) ? { ...msg, read: true } : msg
+            )
+          );
         });
       },
       onStompError: (frame) => {
@@ -88,7 +107,13 @@ function AgentChat({ conversationId, agentId, agents = [], customers = [] }) {
 
   useEffect(() => {
     if (conversationId) {
-      fetch(`http://localhost:8080/conversations/${conversationId}/read?readerType=AGENT`, { method: 'PUT' });
+      fetch(`http://localhost:8080/conversations/${conversationId}/read?readerType=AGENT`, { method: 'PUT' })
+        .then(() => {
+          // Refetch messages to update read status
+          fetch(`http://localhost:8080/conversations/${conversationId}/messages`)
+            .then(response => response.json())
+            .then(data => setMessages(data));
+        });
     }
   }, [conversationId]);
 
@@ -240,6 +265,12 @@ function AgentChat({ conversationId, agentId, agents = [], customers = [] }) {
                 </p>
                 <span style={{ fontSize: '0.75em', color: '#9ca3af', display: 'block', textAlign: 'right', marginTop: 5 }}>
                   {new Date(msg.timestamp).toLocaleTimeString()}
+                  {/* Read indicator for own messages */}
+                  {msg.senderId === agentId && (
+                    <span style={{ color: msg.read ? '#10b981' : '#9ca3af', marginLeft: 6, fontSize: '1.1em' }}>
+                      {msg.read ? '✔✔' : '✔'}
+                    </span>
+                  )}
                 </span>
                 {/* Reply icon for setting reply target and edit icon for editing own messages */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>

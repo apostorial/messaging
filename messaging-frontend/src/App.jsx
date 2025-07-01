@@ -10,8 +10,8 @@ const AGENTS = [
   { id: 'efe6d435-c699-45e5-897c-8bc395056084', name: 'Télé-banquier 2' }
 ];
 const CUSTOMERS = [
-  { id: 'd2707eb4-b1c6-4885-97fc-08091238699e', name: 'Customer 1', conversationId: '208d4291-4069-482e-878e-fb47c49c01b7' },
-  { id: '49de2257-4301-49c4-9e4a-425648558076', name: 'Customer 2', conversationId: 'b4c95d46-ea37-44c9-9290-96a61e1ac0b4' }
+  { id: 'd2707eb4-b1c6-4885-97fc-08091238699e', name: 'Customer 1', conversationId: '545490dd-a5b9-4abb-a5e5-e0040395a403' },
+  { id: '49de2257-4301-49c4-9e4a-425648558076', name: 'Customer 2', conversationId: 'd80ee755-eeff-48d3-aff2-b74e67c27cfa' }
 ];
 
 function App() {

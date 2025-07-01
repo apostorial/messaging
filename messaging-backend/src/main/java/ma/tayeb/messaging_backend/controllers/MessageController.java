@@ -150,15 +150,12 @@ public class MessageController {
     @PutMapping("/conversations/{conversationId}/read")
     public void markMessagesAsRead(
             @PathVariable UUID conversationId,
-            @RequestParam("readerType") String readerType // "AGENT" or "CUSTOMER"
-    ) {
+            @RequestParam("readerType") String readerType) {
         List<Message> unreadMessages;
         if ("AGENT".equalsIgnoreCase(readerType)) {
-            // Mark only customer messages as read
             unreadMessages = messageRepository.findByConversationIdAndSenderTypeAndReadFalse(conversationId,
                     SenderType.CUSTOMER);
         } else if ("CUSTOMER".equalsIgnoreCase(readerType)) {
-            // Mark only agent messages as read
             unreadMessages = messageRepository.findByConversationIdAndSenderTypeAndReadFalse(conversationId,
                     SenderType.AGENT);
         } else {
@@ -168,6 +165,13 @@ public class MessageController {
             msg.setRead(true);
         }
         messageRepository.saveAll(unreadMessages);
+
+        // Broadcast read receipt to all clients in the conversation
+        java.util.List<UUID> readMessageIds = unreadMessages.stream().map(Message::getId).collect(Collectors.toList());
+        messagingTemplate.convertAndSend(
+                "/topic/conversation/" + conversationId + "/read-receipt",
+                readMessageIds
+        );
     }
 
     private SenderType determineSenderType(UUID senderId) {

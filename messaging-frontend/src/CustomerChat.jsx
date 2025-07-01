@@ -37,7 +37,13 @@ function CustomerChat({ conversationId, customerId, agents = [], customers = [] 
       .catch(error => console.error('Error fetching messages:', error));
 
     // Mark agent messages as read when customer opens the conversation
-    fetch(`http://localhost:8080/conversations/${conversationId}/read?readerType=CUSTOMER`, { method: 'PUT' });
+    fetch(`http://localhost:8080/conversations/${conversationId}/read?readerType=CUSTOMER`, { method: 'PUT' })
+      .then(() => {
+        // Refetch messages to update read status
+        fetch(`http://localhost:8080/conversations/${conversationId}/messages`)
+          .then(response => response.json())
+          .then(data => setMessages(data));
+      });
 
     const socketFactory = () => new SockJS('http://localhost:8080/ws-sockjs');
     const client = new Client({
@@ -55,6 +61,25 @@ function CustomerChat({ conversationId, customerId, agents = [], customers = [] 
             }
             return [...prevMessages, receivedMessage];
           });
+
+          // If the message is from an agent, mark as read immediately
+          if (receivedMessage.senderId !== senderId) {
+            fetch(`http://localhost:8080/conversations/${conversationId}/read?readerType=CUSTOMER`, { method: 'PUT' })
+              .then(() => {
+                fetch(`http://localhost:8080/conversations/${conversationId}/messages`)
+                  .then(response => response.json())
+                  .then(data => setMessages(data));
+              });
+          }
+        });
+        // Subscribe to read receipt events
+        client.subscribe(`/topic/conversation/${conversationId}/read-receipt`, (message) => {
+          const readIds = JSON.parse(message.body);
+          setMessages(prevMessages =>
+            prevMessages.map(msg =>
+              readIds.includes(msg.id) ? { ...msg, read: true } : msg
+            )
+          );
         });
       },
       onStompError: (frame) => {
@@ -233,6 +258,12 @@ function CustomerChat({ conversationId, customerId, agents = [], customers = [] 
                 </p>
                 <span style={{ fontSize: '0.75em', color: '#9ca3af', display: 'block', textAlign: 'right', marginTop: 5 }}>
                   {new Date(msg.timestamp).toLocaleTimeString()}
+                  {/* Read indicator for own messages */}
+                  {msg.senderId === senderId && (
+                    <span style={{ color: msg.read ? '#10b981' : '#9ca3af', marginLeft: 6, fontSize: '1.1em' }}>
+                      {msg.read ? '✔✔' : '✔'}
+                    </span>
+                  )}
                 </span>
                 {/* Reply icon for setting reply target and edit icon for editing own messages */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
