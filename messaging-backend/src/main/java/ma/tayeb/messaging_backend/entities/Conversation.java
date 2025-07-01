@@ -1,6 +1,7 @@
 package ma.tayeb.messaging_backend.entities;
 
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -21,4 +22,6 @@ public class Conversation {
 
     @ManyToOne
     private Customer owner;
+
+    private LocalDateTime lastUpdated;
 } 

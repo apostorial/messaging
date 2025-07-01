@@ -5,7 +5,7 @@ import './App.css';
 import React from 'react';
 import { Reply, Pencil, Paperclip } from 'lucide-react';
 
-function AgentChat() {
+function AgentChat({ conversationId }) {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [replyToMessage, setReplyToMessage] = useState(null);
@@ -18,11 +18,11 @@ function AgentChat() {
   const [editingMsgId, setEditingMsgId] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
 
-  // Agent UUIDs
-  const conversationId = import.meta.env.VITE_CONVERSATION_ID;
   const senderId = import.meta.env.VITE_AGENT_ID; // Replace with a valid agent UUID
 
   useEffect(() => {
+    if (!conversationId) return;
+    
     // Fetch initial messages
     fetch(`http://localhost:8080/conversations/${conversationId}/messages`)
       .then(response => response.json())
@@ -136,6 +136,16 @@ function AgentChat() {
     setSelectedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  if (!conversationId) {
+    return (
+      <div className="chat-container">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#9ca3af' }}>
+          Select a conversation to start chatting
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="chat-container">

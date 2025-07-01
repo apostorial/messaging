@@ -5,7 +5,7 @@ import './App.css';
 import React from 'react';
 import { Reply, Pencil, Paperclip } from 'lucide-react';
 
-function CustomerChat() {
+function CustomerChat({ conversationId }) {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [replyToMessage, setReplyToMessage] = useState(null);
@@ -17,10 +17,11 @@ function CustomerChat() {
   const [editingMsgId, setEditingMsgId] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
 
-  const conversationId = import.meta.env.VITE_CONVERSATION_ID;
   const senderId = import.meta.env.VITE_CUSTOMER_ID;
 
   useEffect(() => {
+    if (!conversationId) return;
+    
     fetch(`http://localhost:8080/conversations/${conversationId}/messages`)
       .then(response => response.json())
       .then(data => setMessages(data))
@@ -36,12 +37,10 @@ function CustomerChat() {
           setMessages(prevMessages => {
             const idx = prevMessages.findIndex(m => m.id === receivedMessage.id);
             if (idx !== -1) {
-              // Replace the old message
               const updated = [...prevMessages];
               updated[idx] = receivedMessage;
               return updated;
             }
-            // Otherwise, append as new
             return [...prevMessages, receivedMessage];
           });
         });
@@ -133,6 +132,16 @@ function CustomerChat() {
     window.localStorage.removeItem('customerSelectedFile');
     window.dispatchEvent(new Event('customerSelectedFileChanged'));
   };
+
+  if (!conversationId) {
+    return (
+      <div className="chat-container">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#9ca3af' }}>
+          Select a conversation to start chatting
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="chat-container">

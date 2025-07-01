@@ -3,6 +3,7 @@ package ma.tayeb.messaging_backend.controllers;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -27,6 +28,7 @@ import ma.tayeb.messaging_backend.services.FileService;
 import ma.tayeb.messaging_backend.enums.SenderType;
 import ma.tayeb.messaging_backend.repositories.AgentRepository;
 import ma.tayeb.messaging_backend.repositories.CustomerRepository;
+import ma.tayeb.messaging_backend.dtos.ConversationSummary;
 
 @RestController
 @RequiredArgsConstructor
@@ -62,6 +64,11 @@ public class MessageController {
         message.setReplyTo(chatMessage.getReplyTo());
 
         Message savedMessage = messageRepository.save(message);
+        
+        // Update conversation's lastUpdated timestamp
+        conversation.setLastUpdated(LocalDateTime.now());
+        conversationRepository.save(conversation);
+        
         messagingTemplate.convertAndSend("/topic/conversation/" + savedMessage.getConversation().getId(), savedMessage);
     }
 
@@ -90,6 +97,11 @@ public class MessageController {
             message.setMessageType(MessageType.DOCUMENT);
         }
         Message savedMessage = messageRepository.save(message);
+        
+        // Update conversation's lastUpdated timestamp
+        conversation.setLastUpdated(LocalDateTime.now());
+        conversationRepository.save(conversation);
+        
         messagingTemplate.convertAndSend("/topic/conversation/" + savedMessage.getConversation().getId(), savedMessage);
     }
 
@@ -111,8 +123,29 @@ public class MessageController {
         message.setContent(content);
         message.setEdited(true);
         Message savedMessage = messageRepository.save(message);
+        
+        // Update conversation's lastUpdated timestamp
+        Conversation conversation = savedMessage.getConversation();
+        conversation.setLastUpdated(LocalDateTime.now());
+        conversationRepository.save(conversation);
+        
         messagingTemplate.convertAndSend("/topic/conversation/" + savedMessage.getConversation().getId(), savedMessage);
         return savedMessage;
+    }
+
+    @GetMapping("/conversations")
+    public List<ConversationSummary> getAllConversations() {
+        return conversationRepository.findAllByOrderByLastUpdatedDesc().stream()
+            .map(conv -> {
+                Message lastMessage = messageRepository.findTopByConversationOrderByTimestampDesc(conv);
+                return new ConversationSummary(
+                    conv.getId(),
+                    conv.getOwner().getFullName(),
+                    lastMessage != null ? lastMessage.getTimestamp() : null,
+                    lastMessage != null ? lastMessage.getContent() : null
+                );
+            })
+            .collect(Collectors.toList());
     }
 
     private SenderType determineSenderType(UUID senderId) {
