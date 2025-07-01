@@ -1,5 +1,7 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import './App.css';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 
 const ConversationList = forwardRef(({ onConversationSelect, selectedConversationId }, ref) => {
   const [conversations, setConversations] = useState([]);
@@ -17,11 +19,24 @@ const ConversationList = forwardRef(({ onConversationSelect, selectedConversatio
 
   useEffect(() => {
     fetchConversations();
-    
-    // Refresh conversations every 5 seconds to keep order updated
+    // Subscribe to /topic/conversations for instant updates
+    const socket = new SockJS('http://localhost:8080/ws-sockjs');
+    const client = new Client({
+      webSocketFactory: () => socket,
+      reconnectDelay: 5000,
+      onConnect: () => {
+        client.subscribe('/topic/conversations', () => {
+          fetchConversations();
+        });
+      }
+    });
+    client.activate();
+    // Refresh conversations every 5 seconds to keep order updated (optional, can remove if instant is enough)
     const interval = setInterval(fetchConversations, 5000);
-    
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      client.deactivate();
+    };
   }, []);
 
   const formatTime = (timestamp) => {

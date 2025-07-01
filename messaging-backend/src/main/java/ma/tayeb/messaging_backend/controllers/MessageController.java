@@ -65,11 +65,11 @@ public class MessageController {
         message.setRead(false);
         Message savedMessage = messageRepository.save(message);
 
-        // Update conversation's lastUpdated timestamp
         conversation.setLastUpdated(LocalDateTime.now());
         conversationRepository.save(conversation);
 
         messagingTemplate.convertAndSend("/topic/conversation/" + savedMessage.getConversation().getId(), savedMessage);
+        messagingTemplate.convertAndSend("/topic/conversations", savedMessage.getConversation().getId());
     }
 
     @PostMapping("/upload")
@@ -98,23 +98,22 @@ public class MessageController {
         }
         Message savedMessage = messageRepository.save(message);
 
-        // Update conversation's lastUpdated timestamp
         conversation.setLastUpdated(LocalDateTime.now());
         conversationRepository.save(conversation);
 
         messagingTemplate.convertAndSend("/topic/conversation/" + savedMessage.getConversation().getId(), savedMessage);
     }
 
-    @PutMapping("/messages/{id}")
-    public Message editMessage(@PathVariable UUID id, @RequestBody MessageRequest messageRequest) {
-        Message message = messageRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Message not found"));
-        message.setContent(messageRequest.getContent());
-        message.setEdited(true);
-        Message savedMessage = messageRepository.save(message);
-        messagingTemplate.convertAndSend("/topic/conversation/" + savedMessage.getConversation().getId(), savedMessage);
-        return savedMessage;
-    }
+    // @PutMapping("/messages/{id}")
+    // public Message editMessage(@PathVariable UUID id, @RequestBody MessageRequest messageRequest) {
+    //     Message message = messageRepository.findById(id)
+    //             .orElseThrow(() -> new RuntimeException("Message not found"));
+    //     message.setContent(messageRequest.getContent());
+    //     message.setEdited(true);
+    //     Message savedMessage = messageRepository.save(message);
+    //     messagingTemplate.convertAndSend("/topic/conversation/" + savedMessage.getConversation().getId(), savedMessage);
+    //     return savedMessage;
+    // }
 
     @PutMapping("/messages/{id}/edit")
     public Message editMessageContent(@PathVariable UUID id, @RequestParam("content") String content) {
@@ -124,7 +123,6 @@ public class MessageController {
         message.setEdited(true);
         Message savedMessage = messageRepository.save(message);
 
-        // Update conversation's lastUpdated timestamp
         Conversation conversation = savedMessage.getConversation();
         conversation.setLastUpdated(LocalDateTime.now());
         conversationRepository.save(conversation);
@@ -138,7 +136,6 @@ public class MessageController {
         return conversationRepository.findAllByOrderByLastUpdatedDesc().stream()
                 .map(conv -> {
                     Message lastMessage = messageRepository.findTopByConversationOrderByTimestampDesc(conv);
-                    // For agent: count unread customer messages
                     int unreadCount = messageRepository.findByConversationIdAndSenderTypeAndReadFalse(conv.getId(), SenderType.CUSTOMER).size();
                     return new ConversationSummary(
                             conv.getId(),
@@ -170,12 +167,12 @@ public class MessageController {
         }
         messageRepository.saveAll(unreadMessages);
 
-        // Broadcast read receipt to all clients in the conversation
         java.util.List<UUID> readMessageIds = unreadMessages.stream().map(Message::getId).collect(Collectors.toList());
         messagingTemplate.convertAndSend(
                 "/topic/conversation/" + conversationId + "/read-receipt",
                 readMessageIds
         );
+        messagingTemplate.convertAndSend("/topic/conversations", conversationId);
     }
 
     private SenderType determineSenderType(UUID senderId) {

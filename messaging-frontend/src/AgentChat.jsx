@@ -20,7 +20,6 @@ function AgentChat({ conversationId, agentId, agents = [], customers = [] }) {
 
   const senderId = agentId || import.meta.env.VITE_AGENT_ID;
 
-  // Helper to get sender name
   const getSenderName = (id) => {
     const agent = agents.find(a => a.id === id);
     if (agent) return agent.name;
@@ -31,8 +30,6 @@ function AgentChat({ conversationId, agentId, agents = [], customers = [] }) {
 
   useEffect(() => {
     if (!conversationId) return;
-    
-    // Fetch initial messages
     fetch(`http://localhost:8080/conversations/${conversationId}/messages`)
       .then(response => response.json())
       .then(data => setMessages(data))
@@ -55,7 +52,6 @@ function AgentChat({ conversationId, agentId, agents = [], customers = [] }) {
             return [...prevMessages, receivedMessage];
           });
 
-          // If the message is from a customer, mark as read immediately
           if (!agents.some(a => a.id === receivedMessage.senderId)) {
             fetch(`http://localhost:8080/conversations/${conversationId}/read?readerType=AGENT`, { method: 'PUT' })
               .then(() => {
@@ -65,7 +61,6 @@ function AgentChat({ conversationId, agentId, agents = [], customers = [] }) {
               });
           }
         });
-        // Subscribe to read receipt events
         client.subscribe(`/topic/conversation/${conversationId}/read-receipt`, (message) => {
           const readIds = JSON.parse(message.body);
           setMessages(prevMessages =>
@@ -123,7 +118,6 @@ function AgentChat({ conversationId, agentId, agents = [], customers = [] }) {
 
   const sendMessage = async () => {
     if (editingMsgId) {
-      // Edit message
       await fetch(`http://localhost:8080/messages/${editingMsgId}/edit?content=${encodeURIComponent(inputMessage)}`, {
         method: 'PUT',
       });
@@ -133,7 +127,6 @@ function AgentChat({ conversationId, agentId, agents = [], customers = [] }) {
       return;
     }
     if (selectedFile) {
-      // Upload file
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('senderId', senderId);
