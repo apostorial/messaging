@@ -148,8 +148,22 @@ public class MessageController {
     }
 
     @PutMapping("/conversations/{conversationId}/read")
-    public void markMessagesAsRead(@PathVariable UUID conversationId) {
-        List<Message> unreadMessages = messageRepository.findByConversationIdAndReadFalse(conversationId);
+    public void markMessagesAsRead(
+            @PathVariable UUID conversationId,
+            @RequestParam("readerType") String readerType // "AGENT" or "CUSTOMER"
+    ) {
+        List<Message> unreadMessages;
+        if ("AGENT".equalsIgnoreCase(readerType)) {
+            // Mark only customer messages as read
+            unreadMessages = messageRepository.findByConversationIdAndSenderTypeAndReadFalse(conversationId,
+                    SenderType.CUSTOMER);
+        } else if ("CUSTOMER".equalsIgnoreCase(readerType)) {
+            // Mark only agent messages as read
+            unreadMessages = messageRepository.findByConversationIdAndSenderTypeAndReadFalse(conversationId,
+                    SenderType.AGENT);
+        } else {
+            throw new IllegalArgumentException("Invalid readerType");
+        }
         for (Message msg : unreadMessages) {
             msg.setRead(true);
         }
