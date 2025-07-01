@@ -14,4 +14,5 @@ public class ConversationSummary {
     private String customerName;
     private LocalDateTime lastMessageTime;
     private String lastMessageContent;
+    private int unreadCount;
 } 

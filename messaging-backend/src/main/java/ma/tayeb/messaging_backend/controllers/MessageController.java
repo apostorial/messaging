@@ -138,11 +138,15 @@ public class MessageController {
         return conversationRepository.findAllByOrderByLastUpdatedDesc().stream()
                 .map(conv -> {
                     Message lastMessage = messageRepository.findTopByConversationOrderByTimestampDesc(conv);
+                    // For agent: count unread customer messages
+                    int unreadCount = messageRepository.findByConversationIdAndSenderTypeAndReadFalse(conv.getId(), SenderType.CUSTOMER).size();
                     return new ConversationSummary(
                             conv.getId(),
                             conv.getOwner().getFullName(),
                             lastMessage != null ? lastMessage.getTimestamp() : null,
-                            lastMessage != null ? lastMessage.getContent() : null);
+                            lastMessage != null ? lastMessage.getContent() : null,
+                            unreadCount
+                    );
                 })
                 .collect(Collectors.toList());
     }

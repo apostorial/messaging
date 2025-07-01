@@ -43,6 +43,10 @@ function CustomerChat({ conversationId, customerId, agents = [], customers = [] 
         fetch(`http://localhost:8080/conversations/${conversationId}/messages`)
           .then(response => response.json())
           .then(data => setMessages(data));
+        // Refresh conversation list for instant badge update
+        if (window.conversationListRef?.current?.fetchConversations) {
+          window.conversationListRef.current.fetchConversations();
+        }
       });
 
     const socketFactory = () => new SockJS('http://localhost:8080/ws-sockjs');

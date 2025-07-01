@@ -10,14 +10,15 @@ const AGENTS = [
   { id: 'efe6d435-c699-45e5-897c-8bc395056084', name: 'Télé-banquier 2' }
 ];
 const CUSTOMERS = [
-  { id: 'd2707eb4-b1c6-4885-97fc-08091238699e', name: 'Customer 1', conversationId: '545490dd-a5b9-4abb-a5e5-e0040395a403' },
-  { id: '49de2257-4301-49c4-9e4a-425648558076', name: 'Customer 2', conversationId: 'd80ee755-eeff-48d3-aff2-b74e67c27cfa' }
+  { id: 'd2707eb4-b1c6-4885-97fc-08091238699e', name: 'Customer 1', conversationId: '2836cc65-e8a2-477f-9ef4-d0ac79f6d493' },
+  { id: '49de2257-4301-49c4-9e4a-425648558076', name: 'Customer 2', conversationId: '7e90ed56-cc8c-4bce-8a80-655a7cc0af0d' }
 ];
 
 function App() {
   const [selectedConversationId, setSelectedConversationId] = useState(null);
   const [selectedAgent, setSelectedAgent] = useState(AGENTS[0]);
   const conversationListRef = useRef();
+  window.conversationListRef = conversationListRef;
 
   return (
     <BrowserRouter>

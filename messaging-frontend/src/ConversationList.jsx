@@ -55,6 +55,9 @@ const ConversationList = forwardRef(({ onConversationSelect, selectedConversatio
           >
             <div className="conversation-header">
               <span className="customer-name">{conv.customerName}</span>
+              {conv.unreadCount > 0 && (
+                <span className="unread-badge">{conv.unreadCount}</span>
+              )}
               <span className="last-message-time">{formatTime(conv.lastMessageTime)}</span>
             </div>
             <div className="last-message-preview">

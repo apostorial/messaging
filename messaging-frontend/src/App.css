@@ -164,3 +164,15 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.unread-badge {
+  background: #ef4444;
+  color: #fff;
+  border-radius: 50%;
+  padding: 2px 8px;
+  font-size: 0.85em;
+  margin-left: 8px;
+  min-width: 20px;
+  display: inline-block;
+  text-align: center;
+}
