@@ -9,4 +9,5 @@ import ma.tayeb.messaging_backend.entities.Conversation;
 public interface MessageRepository extends JpaRepository<Message, UUID> {
     List<Message> findByConversationIdOrderByTimestampAsc(UUID conversationId);
     Message findTopByConversationOrderByTimestampDesc(Conversation conversation);
+    List<Message> findByConversationIdAndReadFalse(UUID conversationId);
 } 

@@ -42,12 +42,12 @@ const ConversationList = forwardRef(({ onConversationSelect, selectedConversatio
   return (
     <div className="conversation-list">
       <h3>Conversations</h3>
-      {conversations.length === 0 ? (
+      {Array.isArray(conversations) && conversations.length === 0 ? (
         <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af' }}>
           No conversations yet
         </div>
       ) : (
-        conversations.map((conv) => (
+        Array.isArray(conversations) && conversations.map((conv) => (
           <div
             key={conv.id}
             className={`conversation-item ${selectedConversationId === conv.id ? 'selected' : ''}`}

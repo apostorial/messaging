@@ -62,13 +62,13 @@ public class MessageController {
         message.setTimestamp(LocalDateTime.now());
         message.setMessageType(MessageType.TEXT);
         message.setReplyTo(chatMessage.getReplyTo());
-
+        message.setRead(false);
         Message savedMessage = messageRepository.save(message);
-        
+
         // Update conversation's lastUpdated timestamp
         conversation.setLastUpdated(LocalDateTime.now());
         conversationRepository.save(conversation);
-        
+
         messagingTemplate.convertAndSend("/topic/conversation/" + savedMessage.getConversation().getId(), savedMessage);
     }
 
@@ -97,11 +97,11 @@ public class MessageController {
             message.setMessageType(MessageType.DOCUMENT);
         }
         Message savedMessage = messageRepository.save(message);
-        
+
         // Update conversation's lastUpdated timestamp
         conversation.setLastUpdated(LocalDateTime.now());
         conversationRepository.save(conversation);
-        
+
         messagingTemplate.convertAndSend("/topic/conversation/" + savedMessage.getConversation().getId(), savedMessage);
     }
 
@@ -123,12 +123,12 @@ public class MessageController {
         message.setContent(content);
         message.setEdited(true);
         Message savedMessage = messageRepository.save(message);
-        
+
         // Update conversation's lastUpdated timestamp
         Conversation conversation = savedMessage.getConversation();
         conversation.setLastUpdated(LocalDateTime.now());
         conversationRepository.save(conversation);
-        
+
         messagingTemplate.convertAndSend("/topic/conversation/" + savedMessage.getConversation().getId(), savedMessage);
         return savedMessage;
     }
@@ -136,16 +136,24 @@ public class MessageController {
     @GetMapping("/conversations")
     public List<ConversationSummary> getAllConversations() {
         return conversationRepository.findAllByOrderByLastUpdatedDesc().stream()
-            .map(conv -> {
-                Message lastMessage = messageRepository.findTopByConversationOrderByTimestampDesc(conv);
-                return new ConversationSummary(
-                    conv.getId(),
-                    conv.getOwner().getFullName(),
-                    lastMessage != null ? lastMessage.getTimestamp() : null,
-                    lastMessage != null ? lastMessage.getContent() : null
-                );
-            })
-            .collect(Collectors.toList());
+                .map(conv -> {
+                    Message lastMessage = messageRepository.findTopByConversationOrderByTimestampDesc(conv);
+                    return new ConversationSummary(
+                            conv.getId(),
+                            conv.getOwner().getFullName(),
+                            lastMessage != null ? lastMessage.getTimestamp() : null,
+                            lastMessage != null ? lastMessage.getContent() : null);
+                })
+                .collect(Collectors.toList());
+    }
+
+    @PutMapping("/conversations/{conversationId}/read")
+    public void markMessagesAsRead(@PathVariable UUID conversationId) {
+        List<Message> unreadMessages = messageRepository.findByConversationIdAndReadFalse(conversationId);
+        for (Message msg : unreadMessages) {
+            msg.setRead(true);
+        }
+        messageRepository.saveAll(unreadMessages);
     }
 
     private SenderType determineSenderType(UUID senderId) {
@@ -157,4 +165,4 @@ public class MessageController {
             throw new RuntimeException("Sender not found with ID: " + senderId);
         }
     }
-} 
+}

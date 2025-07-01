@@ -8,6 +8,7 @@ import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
+import javax.persistence.Column;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -31,6 +32,8 @@ public class Message {
     private String fileUrl;
     private UUID replyTo;
     private boolean edited = false;
+    @Column(nullable = false)
+    private boolean read = false;
 
     @ManyToOne
     private Conversation conversation;

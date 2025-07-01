@@ -5,7 +5,7 @@ import './App.css';
 import React from 'react';
 import { Reply, Pencil, Paperclip } from 'lucide-react';
 
-function AgentChat({ conversationId }) {
+function AgentChat({ conversationId, agentId, agents = [], customers = [] }) {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [replyToMessage, setReplyToMessage] = useState(null);
@@ -18,7 +18,16 @@ function AgentChat({ conversationId }) {
   const [editingMsgId, setEditingMsgId] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
 
-  const senderId = import.meta.env.VITE_AGENT_ID; // Replace with a valid agent UUID
+  const senderId = agentId || import.meta.env.VITE_AGENT_ID;
+
+  // Helper to get sender name
+  const getSenderName = (id) => {
+    const agent = agents.find(a => a.id === id);
+    if (agent) return agent.name;
+    const customer = customers.find(c => c.id === id);
+    if (customer) return customer.name;
+    return 'Unknown';
+  };
 
   useEffect(() => {
     if (!conversationId) return;
@@ -75,6 +84,12 @@ function AgentChat({ conversationId }) {
       }
       window.removeEventListener('customerSelectedFileChanged', updateCustomerFile);
     };
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (conversationId) {
+      fetch(`http://localhost:8080/conversations/${conversationId}/read`, { method: 'PUT' });
+    }
   }, [conversationId]);
 
   const sendMessage = async () => {
@@ -151,95 +166,85 @@ function AgentChat({ conversationId }) {
     <div className="chat-container">
       <div className="messages-area">
         {messages.map((msg, index) => {
-          // Find the replied-to message, if any
-          const repliedMsg = msg.replyTo
-            ? messages.find(m => m.id === msg.replyTo)
-            : null;
-
-          // Attach ref to each message by id
-          if (msg.id && !messageRefs.current[msg.id]) {
-            messageRefs.current[msg.id] = React.createRef();
-          }
-
-          const handleReplySnippetClick = (e) => {
-            e.stopPropagation();
-            if (repliedMsg && repliedMsg.id && messageRefs.current[repliedMsg.id]) {
-              messageRefs.current[repliedMsg.id].current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              setHighlightedMsgId(repliedMsg.id);
-              setTimeout(() => setHighlightedMsgId(null), 1000);
-            }
-          };
-
+          // Show sender name if first message or sender changed
+          const showSenderName =
+            index === 0 || messages[index - 1].senderId !== msg.senderId;
           return (
-            <div
-              key={index}
-              className={`message ${msg.senderId === senderId ? 'sent' : 'received'}`}
-              style={{
-                boxShadow: highlightedMsgId === msg.id ? '0 0 0 3px #facc15' : 'none',
-                transition: 'box-shadow 0.5s'
-              }}
-              ref={msg.id ? messageRefs.current[msg.id] : null}
-            >
-              {/* Show replied-to message snippet if exists */}
-              {repliedMsg && (
-                <div className="reply-snippet" onClick={handleReplySnippetClick} style={{ cursor: 'pointer' }}>
-                  <strong>Replying to:</strong>
-                  <div className="reply-content" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {repliedMsg.fileUrl ? (
-                      repliedMsg.messageType === 'IMAGE' ? (
-                        <img src={repliedMsg.fileUrl} alt="thumb" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4, marginRight: 4 }} />
-                      ) : (
-                        <a href={repliedMsg.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#10b981', fontSize: 18, marginRight: 4 }} title="Download attachment">📎</a>
-                      )
-                    ) : (
-                      repliedMsg.content
-                    )}
-                  </div>
+            <div key={index}>
+              {showSenderName && (
+                <div style={{ color: '#10b981', fontWeight: 'bold', marginBottom: 2, marginLeft: 4, fontSize: '0.95em' }}>
+                  {getSenderName(msg.senderId)}
                 </div>
               )}
-              {/* Show file if present */}
-              {msg.fileUrl ? (
-                msg.messageType === 'IMAGE' ? (
-                  <img 
-                    src={msg.fileUrl} 
-                    alt="uploaded" 
-                    style={{ maxWidth: '200px', borderRadius: '10px', marginBottom: '6px', cursor: 'pointer' }} 
-                    onClick={() => setPreviewImage(msg.fileUrl)}
-                  />
-                ) : (
-                  <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#10b981' }}>
-                    Download file
-                  </a>
-                )
-              ) : null}
-              <p>{msg.content}
-                {msg.edited && (
-                  <span style={{ fontSize: '0.8em', color: '#9ca3af', marginLeft: 4 }}>(edited)</span>
+              <div
+                className={`message ${msg.senderId === senderId ? 'sent' : 'received'}`}
+                style={{
+                  boxShadow: highlightedMsgId === msg.id ? '0 0 0 3px #facc15' : 'none',
+                  transition: 'box-shadow 0.5s'
+                }}
+                ref={msg.id ? messageRefs.current[msg.id] : null}
+              >
+                {/* Show replied-to message snippet if exists */}
+                {msg.replyTo && (
+                  <div className="reply-snippet" onClick={(e) => { e.stopPropagation(); handleReplyClick(msg); }} style={{ cursor: 'pointer' }}>
+                    <strong>Replying to:</strong>
+                    <div className="reply-content" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {msg.fileUrl ? (
+                        msg.messageType === 'IMAGE' ? (
+                          <img src={msg.fileUrl} alt="thumb" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4, marginRight: 4 }} />
+                        ) : (
+                          <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#10b981', fontSize: 18, marginRight: 4 }} title="Download attachment">📎</a>
+                        )
+                      ) : (
+                        msg.content
+                      )}
+                    </div>
+                  </div>
                 )}
-              </p>
-              <span>{new Date(msg.timestamp).toLocaleTimeString()}</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 6 }}>
-                <button onClick={() => handleReplyClick(msg)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#10b981', padding: 0 }} title="Reply">
-                  <Reply size={18} />
-                </button>
-                {msg.senderId === senderId && (
-                  <button
-                    onClick={() => {
-                      setInputMessage(msg.content);
-                      setEditingMsgId(msg.id);
-                      setReplyToMessage(null);
-                      setTimeout(() => {
-                        document.getElementById('agent-chat-input')?.focus();
-                        document.getElementById('agent-chat-input')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                      }, 50);
-                    }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#10b981', padding: 0 }}
-                    title="Edit"
-                  >
-                    <Pencil size={18} />
+                {/* Show file if present */}
+                {msg.fileUrl && (
+                  msg.messageType === 'IMAGE' ? (
+                    <img 
+                      src={msg.fileUrl} 
+                      alt="uploaded" 
+                      style={{ maxWidth: '200px', borderRadius: '10px', marginBottom: '6px', cursor: 'pointer' }} 
+                      onClick={() => setPreviewImage(msg.fileUrl)}
+                    />
+                  ) : (
+                    <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#10b981' }}>
+                      Download file
+                    </a>
+                  )
+                )}
+                <p>{msg.content}
+                  {msg.edited && (
+                    <span style={{ fontSize: '0.8em', color: '#9ca3af', marginLeft: 4 }}>(edited)</span>
+                  )}
+                </p>
+                <span>{new Date(msg.timestamp).toLocaleTimeString()}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 6 }}>
+                  <button onClick={() => handleReplyClick(msg)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#10b981', padding: 0 }} title="Reply">
+                    <Reply size={18} />
                   </button>
-                )}
-              </span>
+                  {msg.senderId === senderId && (
+                    <button
+                      onClick={() => {
+                        setInputMessage(msg.content);
+                        setEditingMsgId(msg.id);
+                        setReplyToMessage(null);
+                        setTimeout(() => {
+                          document.getElementById('agent-chat-input')?.focus();
+                          document.getElementById('agent-chat-input')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        }, 50);
+                      }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#10b981', padding: 0 }}
+                      title="Edit"
+                    >
+                      <Pencil size={18} />
+                    </button>
+                  )}
+                </span>
+              </div>
             </div>
           );
         })}
