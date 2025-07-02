@@ -14,6 +14,6 @@ public interface MessageService {
     void send(MessageCreationRequest request);
     void uploadAndSend(MultipartFile file, MessageCreationRequest request);
     Page<Message> findAllByConversation(UUID conversationId, int page, int size);
-    void edit(MessageEditRequest request);
-    void markAsRead(MessageReadRequest request);
+    void edit(UUID messageId, MessageEditRequest request);
+    void markAsRead(UUID conversationId, MessageReadRequest request);
 }

@@ -127,9 +127,9 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    public void edit(MessageEditRequest request) {
-        Message message = messageRepository.findById(request.getId())
-                .orElseThrow(() -> new RuntimeException("Message not found with ID: `" + request.getId() + "`"));
+    public void edit(UUID messageId, MessageEditRequest request) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new RuntimeException("Message not found with ID: `" + messageId + "`"));
         message.setContent(request.getContent());
         message.setEdited(true);
         Message savedMessage = messageRepository.save(message);
@@ -143,15 +143,15 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    public void markAsRead(MessageReadRequest request) {
+    public void markAsRead(UUID conversationId, MessageReadRequest request) {
         List<Message> unreadMessages;
 
         if (request.getReaderType() == ReaderType.AGENT) {
             unreadMessages = messageRepository.findByConversationIdAndSenderTypeAndReadFalse(
-                request.getConversationId(), SenderType.CUSTOMER);
+                conversationId, SenderType.CUSTOMER);
         } else if (request.getReaderType() == ReaderType.CUSTOMER) {
             unreadMessages = messageRepository.findByConversationIdAndSenderTypeAndReadFalse(
-                request.getConversationId(), SenderType.AGENT);
+                conversationId, SenderType.AGENT);
         } else {
             throw new IllegalArgumentException("Invalid readerType");
         }
@@ -164,10 +164,10 @@ public class MessageServiceImpl implements MessageService {
 
         List<UUID> readMessageIds = unreadMessages.stream().map(Message::getId).collect(Collectors.toList());
         simpMessagingTemplate.convertAndSend(
-            "/topic/conversation/" + request.getConversationId() + "/read-receipt",
+            "/topic/conversation/" + conversationId + "/read-receipt",
             readMessageIds
         );
-        simpMessagingTemplate.convertAndSend("/topic/conversations", request.getConversationId());
+        simpMessagingTemplate.convertAndSend("/topic/conversations", conversationId);
         
     }
 
