@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "ma.tayeb.messaging_android"
+    namespace = "com.example.test"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "ma.tayeb.messaging_android"
+        applicationId = "com.example.test"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -42,11 +42,11 @@ android {
 dependencies {
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
-    implementation(libs.threetenabp)
-    implementation(libs.coil.compose)
     implementation(libs.stompprotocolandroid)
-    implementation(libs.rxjava2.rxjava)
-    implementation(libs.rxjava2.rxandroid)
+    implementation(libs.java.websocket)
+    implementation(libs.rxjava)
+    implementation(libs.rxandroid)
+    implementation(libs.okhttp)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

@@ -1,7 +1,7 @@
 package ma.tayeb.messaging_android.types
 
 import ma.tayeb.messaging_android.enums.SenderType
-import java.time.LocalDateTime
+import org.threeten.bp.LocalDateTime
 import java.util.UUID
 
 data class Message(

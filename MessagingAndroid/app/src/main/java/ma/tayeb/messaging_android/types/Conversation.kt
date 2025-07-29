@@ -1,6 +1,6 @@
 package ma.tayeb.messaging_android.types
 
-import java.time.LocalDateTime
+import org.threeten.bp.LocalDateTime
 import java.util.UUID
 
 data class Conversation(

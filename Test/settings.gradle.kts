@@ -16,9 +16,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://jitpack.io") }
+        maven ("https://jitpack.io")
     }
 }
 
-rootProject.name = "Messaging-Android"
+rootProject.name = "Test"
 include(":app")
