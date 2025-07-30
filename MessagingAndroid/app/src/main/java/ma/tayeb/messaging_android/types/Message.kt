@@ -6,7 +6,7 @@ import java.util.UUID
 
 data class Message(
     val id: String?,
-    val content: String?,
+    var content: String?,
 //    val timestamp: LocalDateTime,
     val timestamp: String,
     val replyTo: Message?,

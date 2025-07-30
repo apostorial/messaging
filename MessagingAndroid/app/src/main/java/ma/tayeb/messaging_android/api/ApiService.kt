@@ -38,6 +38,11 @@ interface ApiService {
         @Part file: MultipartBody.Part? = null
     ): Response<Void>
 
+    @PATCH("/api/messages/{messageId}")
+    suspend fun editMessage(
+        @Path("messageId") messageId: String,
+        @Query("content") content: String
+    ): Response<Void>
 
 
 }

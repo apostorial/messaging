@@ -12,20 +12,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,15 +42,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.google.gson.Gson
 import com.jakewharton.threetenabp.AndroidThreeTen
 import kotlinx.coroutines.Dispatchers
@@ -100,9 +101,8 @@ fun ChatScreen() {
             customer = response
 
             connectAndSubscribe(response.conversation.id) { newMessage ->
-                // Avoid duplicates:
                 if (messages.none { it.id == newMessage.id }) {
-                    messages.add(newMessage)
+                    messages.add(0, newMessage) // reverseLayout = true
                 }
             }
 
@@ -116,8 +116,8 @@ fun ChatScreen() {
                 page = 0,
                 size = 20
             )
-            messages.addAll(paginatedResponse.content)
 
+            messages.addAll(paginatedResponse.content.reversed()) // keep latest at top
         } catch (e: Exception) {
             error = e.localizedMessage ?: "Unknown error"
         }
@@ -137,12 +137,12 @@ fun ChatScreen() {
                                     this.toRequestBody("text/plain".toMediaType())
 
                                 map["conversationId"] = request.conversationId.toString().toRequestBody()
-                                map["content"] = request.content?.toRequestBody() as RequestBody
+                                map["content"] = request.content?.toRequestBody() ?: "".toRequestBody()
                                 map["customerId"] = request.customerId.toString().toRequestBody()
                                 map["senderType"] = request.senderType.name.toRequestBody()
 
                                 request.replyToId?.let {
-                                    map["replyToId"] = it.toString().toRequestBody()
+                                    map["replyToId"] = it.toRequestBody()
                                 }
 
                                 return map
@@ -157,7 +157,6 @@ fun ChatScreen() {
                             )
 
                             val formData = createFormDataMap(request)
-
                             RetrofitClient.apiService.sendMessage(formData)
 
                         } catch (e: Exception) {
@@ -177,11 +176,26 @@ fun ChatScreen() {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp),
-                        reverseLayout = false
+                            .padding(bottom = 60.dp),
+                        reverseLayout = true
                     ) {
-                        items(messages) { message ->
-                            MessageBubble(message = message)
+                        items(messages, key = { it.id ?: "" }) { message ->
+                            MessageBubble(
+                                message = message,
+                                onEdit = { newContent ->
+                                    coroutineScope.launch {
+                                        try {
+                                            RetrofitClient.apiService.editMessage(message.id!!, newContent)
+                                            val index = messages.indexOfFirst { it.id == message.id }
+                                            if (index != -1) {
+                                                messages[index] = message.copy(content = newContent, edited = true)
+                                            }
+                                        } catch (e: Exception) {
+                                            println("Edit error: ${e.message}")
+                                        }
+                                    }
+                                }
+                            )
                         }
                     }
                 }
@@ -196,73 +210,101 @@ fun ChatScreen() {
 
 
 @Composable
-fun MessageBubble(message: Message) {
+fun MessageBubble(
+    message: Message,
+    onEdit: (String) -> Unit
+) {
+    var showEditDialog by remember { mutableStateOf(false) }
+    var editedContent by remember { mutableStateOf(message.content ?: "") }
+
     val isCustomer = message.senderType == SenderType.CUSTOMER
-    val alignment = if (isCustomer) Alignment.End else Alignment.Start
-    val bubbleColor = if (isCustomer) Color(0xFFD1E8FF) else Color(0xFFE0E0E0)
-
-    val senderName = when (message.senderType) {
-        SenderType.AGENT -> message.agent?.fullName ?: "Agent"
-        SenderType.CUSTOMER -> message.customer?.fullName ?: "Customer"
-    }
-
-    val formattedTimestamp = formatTimestamp(message.timestamp)
+    val senderName = message.agent?.fullName ?: message.customer?.fullName ?: "Unknown"
+    val formattedTime = formatTimestamp(message.timestamp)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalAlignment = alignment
+            .padding(4.dp)
     ) {
-        Surface(
-            color = bubbleColor,
-            shape = RoundedCornerShape(8.dp),
-            modifier = Modifier.padding(horizontal = 8.dp)
+        Text(
+            "$senderName • $formattedTime",
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            contentAlignment = if (isCustomer) Alignment.CenterEnd else Alignment.CenterStart
         ) {
-            Column(modifier = Modifier.padding(8.dp)) {
-                Text(
-                    text = senderName,
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color.Gray,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isCustomer) Color(0xFFD0F8CE) else Color(0xFFE0F7FA)
+                ),
+                modifier = Modifier.padding(4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(8.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column {
+                        Text(message.content ?: "")
 
-                if (!message.content.isNullOrBlank()) {
-                    Text(
-                        text = message.content,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                        message.fileUrl?.let { fileUrl ->
+                            val resolvedUrl = fileUrl.replace("http://localhost:9000", "http://10.0.2.2:9000")
+                            AsyncImage(
+                                model = resolvedUrl,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .padding(top = 8.dp)
+                                    .height(200.dp),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    }
+
+                    if (isCustomer) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(
+                            onClick = { showEditDialog = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit")
+                        }
+                    }
                 }
-
-                message.fileUrl?.let { url ->
-                    val imageUrl = url.replace("http://localhost:9000", "http://10.0.2.2:9000")
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(imageUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = "Attached image",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 300.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = formattedTimestamp,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.DarkGray,
-                    modifier = Modifier.align(Alignment.End)
-                )
             }
         }
+
+    }
+
+    if (showEditDialog) {
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    onEdit(editedContent)
+                    showEditDialog = false
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+            title = { Text("Edit Message") },
+            text = {
+                TextField(
+                    value = editedContent,
+                    onValueChange = { editedContent = it },
+                    singleLine = false,
+                    label = { Text("New Content") }
+                )
+            }
+        )
     }
 }
 
@@ -379,6 +421,7 @@ fun formatTimestamp(timestampStr: String): String {
         parsed.format(DateTimeFormatter.ofPattern("MMM dd, HH:mm"))
     } catch (e: Exception) {
         // Fallback if parsing fails
+        println(e)
         timestampStr
     }
 }
