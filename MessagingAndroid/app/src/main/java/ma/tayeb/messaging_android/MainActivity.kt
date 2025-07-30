@@ -20,20 +20,27 @@ import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,6 +65,7 @@ import com.google.gson.Gson
 import com.jakewharton.threetenabp.AndroidThreeTen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ma.tayeb.messaging_android.config.RetrofitClient
 import ma.tayeb.messaging_android.enums.ReaderType
 import ma.tayeb.messaging_android.enums.SenderType
@@ -67,12 +75,18 @@ import ma.tayeb.messaging_android.types.Message
 import ma.tayeb.messaging_android.types.MessageCreationRequest
 import ma.tayeb.messaging_android.ui.theme.MessagingAndroidTheme
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import org.threeten.bp.LocalDateTime
 import org.threeten.bp.format.DateTimeFormatter
 import ua.naiksoftware.stomp.Stomp
 import ua.naiksoftware.stomp.dto.LifecycleEvent
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.util.UUID
 
 
@@ -89,7 +103,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MessagingAndroidTheme {
-                ChatScreen()
+                App()
             }
         }
     }
@@ -571,6 +585,160 @@ fun connectAndSubscribe(conversationId: UUID, onMessageReceived: (Message) -> Un
             throwable.printStackTrace()
         })
 }
+
+@Composable
+fun FloatingRagBubble(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        contentAlignment = Alignment.TopEnd
+    ) {
+        FloatingActionButton(onClick = onClick) {
+            Icon(Icons.Default.Search, contentDescription = "Ask FAQ")
+        }
+    }
+}
+
+@Composable
+fun RagChatScreen(
+    onBack: () -> Unit
+) {
+    var question by remember { mutableStateOf("") }
+    var answer by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+            }
+            Text("Ask FAQ", style = MaterialTheme.typography.titleLarge)
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = question,
+            onValueChange = { question = it },
+            label = { Text("Your question") },
+            singleLine = true,
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Send),
+            keyboardActions = KeyboardActions(onSend = {
+                if (question.isNotBlank() && !loading) {
+                    coroutineScope.launch {
+                        answer = ""
+                        loading = true
+                        streamAnswer(question) { chunk ->
+                            answer += chunk
+                        }
+                        loading = false
+                    }
+                }
+            })
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        Button(
+            onClick = {
+                if (question.isNotBlank() && !loading) {
+                    coroutineScope.launch {
+                        answer = ""
+                        loading = true
+                        streamAnswer(question) { chunk ->
+                            answer += chunk
+                        }
+                        loading = false
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = question.isNotBlank() && !loading
+        ) {
+            Text(if (loading) "Loading..." else "Ask")
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Text(
+            text = answer,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
+}
+
+suspend fun streamAnswer(
+    question: String,
+    onChunk: (String) -> Unit
+) {
+    withContext(Dispatchers.IO) {
+        try {
+            val client = OkHttpClient.Builder()
+                .readTimeout(0, java.util.concurrent.TimeUnit.MILLISECONDS) // no timeout on read
+                .build()
+
+            val jsonBody = JSONObject().apply { put("question", question) }
+
+            val requestBody = jsonBody.toString()
+                .toRequestBody("application/json".toMediaTypeOrNull())
+
+            val request = Request.Builder()
+                .url("http://10.0.2.2:8000/ask")
+                .post(requestBody)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw Exception("Unexpected code $response")
+
+                val source = response.body?.source()
+                if (source == null) throw Exception("Response body source is null")
+
+                val buffer = okio.Buffer()
+                while (true) {
+                    val bytesRead = source.read(buffer, 8192)
+                    if (bytesRead == -1L) break
+
+                    val chunk = buffer.readUtf8()
+                    onChunk(chunk)
+                }
+            }
+
+        } catch (e: Exception) {
+            onChunk("\n\nError: ${e.message}")
+        }
+    }
+}
+
+@Composable
+fun MainScreen(
+    onOpenRagChat: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        ChatScreen() // Your existing main chat UI
+
+        FloatingRagBubble(onClick = onOpenRagChat) // Floating bubble top-right
+    }
+}
+
+
+@Composable
+fun App() {
+    var currentScreen by remember { mutableStateOf("main") }
+
+    when (currentScreen) {
+        "main" -> MainScreen(onOpenRagChat = { currentScreen = "ragChat" })
+        "ragChat" -> RagChatScreen(onBack = { currentScreen = "main" })
+    }
+}
+
 
 fun formatTimestamp(timestampStr: String): String {
     return try {
