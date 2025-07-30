@@ -6,13 +6,15 @@ import java.util.UUID
 data class Conversation(
     val id: UUID,
     val owner: Customer,
-    val lastUpdated: LocalDateTime
+//    val lastUpdated: LocalDateTime
+    val lastUpdated: String
 )
 
 data class ConversationResponse(
     val id: UUID,
     val owner: Customer,
-    val lastUpdated: LocalDateTime,
+//    val lastUpdated: LocalDateTime,
+    val lastUpdated: String,
     val lastMessageSender: String,
     val lastMessageContent: String,
     val unreadCount: Int

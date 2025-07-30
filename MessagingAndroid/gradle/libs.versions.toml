@@ -2,6 +2,7 @@
 agp = "8.11.1"
 coilCompose = "2.7.0"
 converterGson = "3.0.0"
+converterMoshi = "2.9.0"
 javaWebsocket = "1.6.0"
 javaWebsocketVersion = "1.5.3"
 kotlin = "2.0.21"
@@ -12,6 +13,8 @@ espressoCore = "3.6.1"
 lifecycleRuntimeKtx = "2.9.2"
 activityCompose = "1.10.1"
 composeBom = "2024.09.00"
+moshi = "1.15.0"
+moshiKotlin = "1.15.0"
 rxandroid = "3.0.2"
 rxandroidVersion = "2.1.1"
 rxjava = "3.1.11"
@@ -25,6 +28,7 @@ websocket = "1.5.3"
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "converterGson" }
+converter-moshi = { module = "com.squareup.retrofit2:converter-moshi", version.ref = "converterMoshi" }
 java-websocket = { module = "org.java-websocket:Java-WebSocket", version.ref = "javaWebsocket" }
 java-websocket-v153 = { module = "org.java-websocket:Java-WebSocket", version.ref = "javaWebsocketVersion" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -40,6 +44,8 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+moshi = { module = "com.squareup.moshi:moshi", version.ref = "moshi" }
+moshi-kotlin = { module = "com.squareup.moshi:moshi-kotlin", version.ref = "moshiKotlin" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "converterGson" }
 rxandroid = { module = "io.reactivex.rxjava3:rxandroid", version.ref = "rxandroid" }
 rxjava = { module = "io.reactivex.rxjava3:rxjava", version.ref = "rxjava" }
