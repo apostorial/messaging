@@ -5,6 +5,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -599,81 +602,147 @@ fun FloatingRagBubble(onClick: () -> Unit) {
         }
     }
 }
-
 @Composable
 fun RagChatScreen(
     onBack: () -> Unit
 ) {
-    var question by remember { mutableStateOf("") }
-    var answer by remember { mutableStateOf("") }
-    var loading by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    // List of chat messages: Pair<isUser:Boolean, content:String>
+    val chatMessages = remember { mutableStateListOf<Pair<Boolean, String>>() }
+
+    var currentQuestion by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+
+    // Scroll to bottom when chatMessages changes
+    LaunchedEffect(chatMessages.size) {
+        if (chatMessages.isNotEmpty()) {
+            listState.animateScrollToItem(chatMessages.size - 1)
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Top bar
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+        ) {
             IconButton(onClick = onBack) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back")
             }
             Text("Ask FAQ", style = MaterialTheme.typography.titleLarge)
         }
 
-        Spacer(Modifier.height(16.dp))
-
-        OutlinedTextField(
-            value = question,
-            onValueChange = { question = it },
-            label = { Text("Your question") },
-            singleLine = true,
-            enabled = !loading,
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = {
-                if (question.isNotBlank() && !loading) {
-                    coroutineScope.launch {
-                        answer = ""
-                        loading = true
-                        streamAnswer(question) { chunk ->
-                            answer += chunk
-                        }
-                        loading = false
-                    }
-                }
-            })
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Button(
-            onClick = {
-                if (question.isNotBlank() && !loading) {
-                    coroutineScope.launch {
-                        answer = ""
-                        loading = true
-                        streamAnswer(question) { chunk ->
-                            answer += chunk
-                        }
-                        loading = false
-                    }
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = question.isNotBlank() && !loading
+        // Chat messages list
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp),
+            state = listState,
+            reverseLayout = false,
         ) {
-            Text(if (loading) "Loading..." else "Ask")
+            items(chatMessages) { (isUser, content) ->
+                ChatBubble(isUser = isUser, text = content)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
 
-        Spacer(Modifier.height(16.dp))
-
-        Text(
-            text = answer,
+        // Input bar
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState()),
-            style = MaterialTheme.typography.bodyLarge
-        )
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = currentQuestion,
+                onValueChange = { currentQuestion = it },
+                modifier = Modifier.weight(1f),
+                label = { Text("Type your question") },
+                singleLine = true,
+                enabled = !isLoading,
+                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(
+                    onSend = {
+                        if (currentQuestion.isNotBlank() && !isLoading) {
+                            coroutineScope.launch {
+                                // Add user question to chat
+                                chatMessages.add(true to currentQuestion)
+                                val questionToSend = currentQuestion
+                                currentQuestion = ""
+                                isLoading = true
+
+                                // Add empty answer message to update streaming chunks
+                                chatMessages.add(false to "")
+
+                                streamAnswer(questionToSend) { chunk ->
+                                    // Append chunk to last answer bubble
+                                    val lastIndex = chatMessages.lastIndex
+                                    val old = chatMessages[lastIndex]
+                                    chatMessages[lastIndex] = old.copy(second = old.second + chunk)
+                                }
+
+                                isLoading = false
+                            }
+                        }
+                    }
+                )
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = {
+                    if (currentQuestion.isNotBlank() && !isLoading) {
+                        coroutineScope.launch {
+                            chatMessages.add(true to currentQuestion)
+                            val questionToSend = currentQuestion
+                            currentQuestion = ""
+                            isLoading = true
+
+                            chatMessages.add(false to "")
+                            streamAnswer(questionToSend) { chunk ->
+                                val lastIndex = chatMessages.lastIndex
+                                val old = chatMessages[lastIndex]
+                                chatMessages[lastIndex] = old.copy(second = old.second + chunk)
+                            }
+                            isLoading = false
+                        }
+                    }
+                },
+                enabled = currentQuestion.isNotBlank() && !isLoading
+            ) {
+                Text(if (isLoading) "Loading..." else "Send")
+            }
+        }
     }
 }
+
+@Composable
+fun ChatBubble(
+    isUser: Boolean,
+    text: String
+) {
+    val backgroundColor = if (isUser) Color(0xFFD0F8CE) else Color(0xFFE0F7FA)
+    val alignment = if (isUser) Alignment.End else Alignment.Start
+    val shape = RoundedCornerShape(12.dp)
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+    ) {
+        Box(
+            modifier = Modifier
+                .background(backgroundColor, shape)
+                .padding(12.dp)
+                .widthIn(max = 280.dp)
+        ) {
+            Text(text = text)
+        }
+    }
+}
+
 
 suspend fun streamAnswer(
     question: String,
