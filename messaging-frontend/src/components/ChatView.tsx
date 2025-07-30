@@ -325,139 +325,154 @@ function ChatView({ conversation }: ChatViewProps) {
                 isHighlighted ? 'scale-[1.02]' : 'scale-100'
               }`}
             >
-              <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg transition-all duration-300 ${
-                isCustomer 
-                  ? 'bg-white border border-gray-200' 
-                  : 'bg-blue-500 text-white'
-              } ${
+              <div className={`max-w-xs lg:max-w-md transition-all duration-300 ${
                 isHighlighted 
                   ? isCustomer 
-                    ? 'shadow-lg ring-2 ring-blue-300 bg-blue-50' 
-                    : 'shadow-lg ring-2 ring-blue-200 bg-blue-400'
+                    ? 'shadow-lg ring-2 ring-blue-300' 
+                    : 'shadow-lg ring-2 ring-blue-200'
                   : ''
               }`}>
-                {hasReply && (
-                  <button
-                    onClick={() => handleReplyPreviewClick(hasReply.id)}
-                    className={`mb-2 p-2 rounded text-xs w-full text-left hover:opacity-80 transition-opacity ${
-                      isCustomer 
-                        ? 'bg-gray-100 text-gray-600 border-l-3 border-gray-400' 
-                        : 'bg-blue-400 text-blue-100 border-l-3 border-blue-200'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-1 mb-1">
-                      <ArrowLeft size={10} />
-                      <span className="font-medium">
-                        {hasReply.senderType === 'CUSTOMER' ? 'Customer' : 'You'}
-                      </span>
-                    </div>
-                    <div className="truncate">
-                      {hasReply.content || (hasReply.fileUrl ? '📷 Image' : '')}
-                    </div>
-                  </button>
-                )}
-                
-                {hasImage && (
-                  <div className="mb-2">
-                    <img 
-                      src={message.fileUrl} 
-                      alt="Attachment"
-                      className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => handleImageClick(message.fileUrl)}
-                    />
+                <div className={`px-4 py-2 rounded-lg ${
+                  isCustomer 
+                    ? 'bg-white border border-gray-200' 
+                    : 'bg-blue-500 text-white'
+                }`}>
+                  {/* Sender name */}
+                  <div className={`text-xs font-medium mb-1 ${
+                    isCustomer ? 'text-gray-600' : 'text-blue-100'
+                  }`}>
+                    {isCustomer ? conversation.owner.fullName : 'You'}
                   </div>
-                )}
-                {message.content ? (
-                  editingMessageId === message.id ? (
-                    <div className="flex items-center space-x-2">
-                      <input
-                        ref={editInputRef}
-                        type="text"
-                        value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
-                        onKeyPress={handleEditKeyPress}
-                        className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        autoFocus
-                      />
-                      <button
-                        onClick={handleSaveEdit}
-                        className="p-1 text-green-600 hover:text-green-800"
-                      >
-                        <CheckIcon size={14} />
-                      </button>
-                      <button
-                        onClick={handleCancelEdit}
-                        className="p-1 text-red-600 hover:text-red-800"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm">{message.content}</p>
-                      <div className="flex items-center space-x-1 ml-2">
-                        <button
-                          onClick={() => handleReplyToMessage(message)}
-                          className={`p-1 transition-colors ${
-                            isCustomer 
-                              ? 'text-gray-400 hover:text-gray-600' 
-                              : 'text-blue-100 hover:text-white'
-                          }`}
-                        >
-                          <Reply size={12} />
-                        </button>
-                        {!isCustomer && (
-                          <button
-                            onClick={() => handleStartEdit(message)}
-                            className="p-1 text-white hover:text-gray-200 transition-colors"
-                          >
-                            <Edit2 size={12} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                ) : (
-                  <div className="flex items-center justify-end space-x-1 mt-2">
+                  {hasReply && (
                     <button
-                      onClick={() => handleReplyToMessage(message)}
-                      className={`p-1 transition-colors ${
+                      onClick={() => handleReplyPreviewClick(hasReply.id)}
+                      className={`mb-2 p-2 rounded text-xs w-full text-left hover:opacity-80 transition-opacity ${
                         isCustomer 
-                          ? 'text-gray-400 hover:text-gray-600' 
-                          : 'text-blue-100 hover:text-white'
+                          ? 'bg-gray-100 text-gray-600 border-l-3 border-gray-400' 
+                          : 'bg-blue-400 text-blue-100 border-l-3 border-blue-200'
                       }`}
                     >
-                      <Reply size={12} />
+                      <div className="flex items-center space-x-1 mb-1">
+                        <ArrowLeft size={10} />
+                        <span className="font-medium">
+                          {hasReply.senderType === 'CUSTOMER' ? 'Customer' : 'You'}
+                        </span>
+                      </div>
+                      <div className="truncate">
+                        {hasReply.content || (hasReply.fileUrl ? '📷 Image' : '')}
+                      </div>
                     </button>
-                    {!isCustomer && (
+                  )}
+                  
+                  {hasImage && (
+                    <div className="mb-2">
+                      <img 
+                        src={message.fileUrl} 
+                        alt="Attachment"
+                        className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => handleImageClick(message.fileUrl)}
+                      />
+                    </div>
+                  )}
+                  {message.content ? (
+                    editingMessageId === message.id ? (
+                      <div className="flex items-center space-x-2">
+                        <input
+                          ref={editInputRef}
+                          type="text"
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          onKeyPress={handleEditKeyPress}
+                          className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          autoFocus
+                        />
+                        <button
+                          onClick={handleSaveEdit}
+                          className="p-1 text-green-600 hover:text-green-800"
+                        >
+                          <CheckIcon size={14} />
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="p-1 text-red-600 hover:text-red-800"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm">{message.content}</p>
+                        <div className="flex items-center space-x-1 ml-2">
+                          <button
+                            onClick={() => handleReplyToMessage(message)}
+                            className={`p-1 transition-colors ${
+                              isCustomer 
+                                ? 'text-gray-400 hover:text-gray-600' 
+                                : 'text-blue-100 hover:text-white'
+                            }`}
+                          >
+                            <Reply size={12} />
+                          </button>
+                          {!isCustomer && (
+                            <button
+                              onClick={() => handleStartEdit(message)}
+                              className="p-1 text-white hover:text-gray-200 transition-colors"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="flex items-center justify-end space-x-1 mt-2">
                       <button
-                        onClick={() => handleStartEdit(message)}
-                        className="p-1 text-white hover:text-gray-200 transition-colors"
+                        onClick={() => handleReplyToMessage(message)}
+                        className={`p-1 transition-colors ${
+                          isCustomer 
+                            ? 'text-gray-400 hover:text-gray-600' 
+                            : 'text-blue-100 hover:text-white'
+                        }`}
                       >
-                        <Edit2 size={12} />
+                        <Reply size={12} />
                       </button>
-                    )}
-                  </div>
-                )}
-                <div className={`flex items-center justify-between mt-1 ${
-                  isCustomer ? 'text-gray-500' : 'text-blue-100'
-                }`}>
-                  <span className="text-xs">
-                    {new Date(message.timestamp).toLocaleTimeString('en-GB', { 
-                      hour: '2-digit', 
-                      minute: '2-digit',
-                      hour12: false
-                    })}
-                  </span>
-                  {!isCustomer && (
-                    <div className="flex items-center space-x-1 ml-2">
-                      {message.read ? (
-                        <CheckCheck size={14} className="text-blue-100" />
-                      ) : (
-                        <Check size={14} className="text-blue-200" />
+                      {!isCustomer && (
+                        <button
+                          onClick={() => handleStartEdit(message)}
+                          className="p-1 text-white hover:text-gray-200 transition-colors"
+                        >
+                          <Edit2 size={12} />
+                        </button>
                       )}
                     </div>
                   )}
+                  <div className={`flex items-center justify-between mt-1 ${
+                    isCustomer ? 'text-gray-500' : 'text-blue-100'
+                  }`}>
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs">
+                        {new Date(message.timestamp).toLocaleTimeString('en-GB', { 
+                          hour: '2-digit', 
+                          minute: '2-digit',
+                          hour12: false
+                        })}
+                      </span>
+                      {message.edited && (
+                        <span className="text-xs italic">
+                          (edited)
+                        </span>
+                      )}
+                    </div>
+                    {!isCustomer && (
+                      <div className="flex items-center space-x-1 ml-2">
+                        {message.read ? (
+                          <CheckCheck size={14} className="text-blue-100" />
+                        ) : (
+                          <Check size={14} className="text-blue-200" />
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
