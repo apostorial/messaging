@@ -15,11 +15,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -45,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.google.gson.Gson
@@ -67,6 +74,7 @@ import org.threeten.bp.format.DateTimeFormatter
 import ua.naiksoftware.stomp.Stomp
 import ua.naiksoftware.stomp.dto.LifecycleEvent
 import java.util.UUID
+
 
 val request = CustomerCreationRequest(
     fullName = "Customer",
@@ -95,6 +103,10 @@ fun ChatScreen() {
     var error by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
+    var replyToMessage by remember { mutableStateOf<Message?>(null) }
+
+    val listState = rememberLazyListState()
+
     LaunchedEffect(Unit) {
         try {
             val response = RetrofitClient.apiService.findOrCreate(request)
@@ -102,7 +114,7 @@ fun ChatScreen() {
 
             connectAndSubscribe(response.conversation.id) { newMessage ->
                 if (messages.none { it.id == newMessage.id }) {
-                    messages.add(0, newMessage) // reverseLayout = true
+                    messages.add(newMessage)
                 }
             }
 
@@ -116,55 +128,75 @@ fun ChatScreen() {
                 page = 0,
                 size = 20
             )
+            messages.addAll(paginatedResponse.content)
 
-            messages.addAll(paginatedResponse.content.reversed()) // keep latest at top
         } catch (e: Exception) {
             error = e.localizedMessage ?: "Unknown error"
         }
     }
 
+// Scroll to bottom on new messages
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            MessageInputBar(
-                onSend = { messageText ->
-                    coroutineScope.launch(Dispatchers.IO) {
-                        try {
-                            fun createFormDataMap(request: MessageCreationRequest): Map<String, RequestBody> {
-                                val map = mutableMapOf<String, RequestBody>()
+            Column {
+                // Reply preview above input bar if replying
+                replyToMessage?.let { message ->
+                    ReplyPreview(
+                        message = message,
+                        onCancel = { replyToMessage = null }
+                    )
+                }
 
-                                fun String.toRequestBody(): RequestBody =
-                                    this.toRequestBody("text/plain".toMediaType())
+                MessageInputBar(
+                    onSend = { messageText ->
+                        coroutineScope.launch(Dispatchers.IO) {
+                            try {
+                                fun createFormDataMap(request: MessageCreationRequest): Map<String, RequestBody> {
+                                    val map = mutableMapOf<String, RequestBody>()
 
-                                map["conversationId"] = request.conversationId.toString().toRequestBody()
-                                map["content"] = request.content?.toRequestBody() ?: "".toRequestBody()
-                                map["customerId"] = request.customerId.toString().toRequestBody()
-                                map["senderType"] = request.senderType.name.toRequestBody()
+                                    fun String.toRequestBody(): RequestBody =
+                                        this.toRequestBody("text/plain".toMediaType())
 
-                                request.replyToId?.let {
-                                    map["replyToId"] = it.toRequestBody()
+                                    map["conversationId"] = request.conversationId.toString().toRequestBody()
+                                    map["content"] = request.content?.toRequestBody() as RequestBody
+                                    map["customerId"] = request.customerId.toString().toRequestBody()
+                                    map["senderType"] = request.senderType.name.toRequestBody()
+
+                                    request.replyToId?.let {
+                                        map["replyToId"] = it.toRequestBody()
+                                    }
+
+                                    return map
                                 }
 
-                                return map
+                                val request = MessageCreationRequest(
+                                    conversationId = customer!!.conversation.id,
+                                    content = messageText,
+                                    customerId = customer!!.id,
+                                    senderType = SenderType.CUSTOMER,
+                                    replyToId = replyToMessage?.id // set replyToId here
+                                )
+
+                                val formData = createFormDataMap(request)
+
+                                RetrofitClient.apiService.sendMessage(formData)
+                                replyToMessage = null // clear reply after send
+
+                            } catch (e: Exception) {
+                                println("Send message error: ${e.message}")
                             }
-
-                            val request = MessageCreationRequest(
-                                conversationId = customer!!.conversation.id,
-                                content = messageText,
-                                customerId = customer!!.id,
-                                senderType = SenderType.CUSTOMER,
-                                replyToId = null
-                            )
-
-                            val formData = createFormDataMap(request)
-                            RetrofitClient.apiService.sendMessage(formData)
-
-                        } catch (e: Exception) {
-                            println("Send message error: ${e.message}")
                         }
                     }
-                }
-            )
+                )
+            }
         }
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
@@ -174,10 +206,8 @@ fun ChatScreen() {
                 }
                 messages.isNotEmpty() -> {
                     LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = 60.dp),
-                        reverseLayout = true
+                        modifier = Modifier.fillMaxSize().padding(bottom = 60.dp),
+                        state = listState
                     ) {
                         items(messages, key = { it.id ?: "" }) { message ->
                             MessageBubble(
@@ -194,6 +224,9 @@ fun ChatScreen() {
                                             println("Edit error: ${e.message}")
                                         }
                                     }
+                                },
+                                onReply = {
+                                    replyToMessage = it
                                 }
                             )
                         }
@@ -208,11 +241,46 @@ fun ChatScreen() {
 }
 
 
+@Composable
+fun ReplyPreview(
+    message: Message,
+    onCancel: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.LightGray)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(8.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Replying to:",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.DarkGray
+                )
+                Text(
+                    text = message.content ?: "",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            IconButton(onClick = onCancel) {
+                Icon(Icons.Default.Close, contentDescription = "Cancel reply")
+            }
+        }
+    }
+}
 
 @Composable
 fun MessageBubble(
     message: Message,
-    onEdit: (String) -> Unit
+    onEdit: (String) -> Unit,
+    onReply: (Message) -> Unit
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
     var editedContent by remember { mutableStateOf(message.content ?: "") }
@@ -223,33 +291,115 @@ fun MessageBubble(
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
             .padding(4.dp)
+            .fillMaxWidth(),
+        horizontalAlignment = if (isCustomer) Alignment.End else Alignment.Start
     ) {
-        Text(
-            "$senderName • $formattedTime",
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
-        )
-
-        Box(
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = if (isCustomer) Color(0xFFD0F8CE) else Color(0xFFE0F7FA)
+            ),
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            contentAlignment = if (isCustomer) Alignment.CenterEnd else Alignment.CenterStart
+                .wrapContentWidth()
+                .widthIn(max = 280.dp)
+                .padding(4.dp)
         ) {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isCustomer) Color(0xFFD0F8CE) else Color(0xFFE0F7FA)
-                ),
-                modifier = Modifier.padding(4.dp)
-            ) {
+            Column(modifier = Modifier.padding(8.dp)) {
+                // Sender name + timestamp (no read receipt here now)
                 Row(
-                    modifier = Modifier.padding(8.dp),
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 4.dp)
                 ) {
-                    Column {
+                    Text(
+                        text = senderName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.DarkGray
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = formattedTime,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.DarkGray
+                    )
+                }
+
+                // Reply preview inside bubble
+                message.replyTo?.let { replied ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFECECEC)),
+                        modifier = Modifier
+                            .padding(bottom = 4.dp)
+                            .fillMaxWidth()
+                    ) {
+                        Text(
+                            text = replied.content ?: "",
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(6.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.DarkGray
+                        )
+                    }
+                }
+
+                // Message content and optional image with edited and read receipt on same line
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(message.content ?: "")
+
+                        if (message.edited) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "(edited)",
+                                    style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray),
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                                if (isCustomer) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    if (message.read) {
+                                        Icon(
+                                            imageVector = Icons.Default.Done,
+                                            contentDescription = "Read",
+                                            tint = Color(0xFF4FC3F7),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Done,
+                                            contentDescription = "Sent",
+                                            tint = Color.Gray,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            // If not edited but still customer message, show read receipt aligned right
+                            if (isCustomer) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    if (message.read) {
+                                        Icon(
+                                            imageVector = Icons.Default.Done,
+                                            contentDescription = "Read",
+                                            tint = Color(0xFF4FC3F7),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Done,
+                                            contentDescription = "Sent",
+                                            tint = Color.Gray,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
 
                         message.fileUrl?.let { fileUrl ->
                             val resolvedUrl = fileUrl.replace("http://localhost:9000", "http://10.0.2.2:9000")
@@ -264,19 +414,28 @@ fun MessageBubble(
                         }
                     }
 
-                    if (isCustomer) {
-                        Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Column {
+                        if (isCustomer) {
+                            IconButton(
+                                onClick = { showEditDialog = true },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = "Edit")
+                            }
+                        }
+
                         IconButton(
-                            onClick = { showEditDialog = true },
+                            onClick = { onReply(message) },
                             modifier = Modifier.size(24.dp)
                         ) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit")
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Reply")
                         }
                     }
                 }
             }
         }
-
     }
 
     if (showEditDialog) {
