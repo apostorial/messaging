@@ -1,6 +1,7 @@
 [versions]
 agp = "8.11.1"
 coilCompose = "2.7.0"
+coilComposeVersion = "2.5.0"
 converterGson = "3.0.0"
 converterMoshi = "2.9.0"
 javaWebsocket = "1.6.0"
@@ -27,6 +28,7 @@ websocket = "1.5.3"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
+coil-compose-v250 = { module = "io.coil-kt:coil-compose", version.ref = "coilComposeVersion" }
 converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "converterGson" }
 converter-moshi = { module = "com.squareup.retrofit2:converter-moshi", version.ref = "converterMoshi" }
 java-websocket = { module = "org.java-websocket:Java-WebSocket", version.ref = "javaWebsocket" }

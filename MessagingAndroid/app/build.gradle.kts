@@ -47,6 +47,8 @@ dependencies {
     implementation(libs.stompprotocolandroid)
     implementation(libs.rxjava2.rxjava)
     implementation(libs.rxjava2.rxandroid)
+    implementation(libs.coil.compose.v250)
+
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
