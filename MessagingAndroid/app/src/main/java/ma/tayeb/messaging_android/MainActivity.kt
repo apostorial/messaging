@@ -1,7 +1,9 @@
 package ma.tayeb.messaging_android
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Bundle
+import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -30,11 +32,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -58,8 +62,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -79,6 +85,7 @@ import ma.tayeb.messaging_android.types.MessageCreationRequest
 import ma.tayeb.messaging_android.ui.theme.MessagingAndroidTheme
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
@@ -119,6 +126,7 @@ fun ChatScreen() {
     val messages = remember { mutableStateListOf<Message>() }
     var error by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var replyToMessage by remember { mutableStateOf<Message?>(null) }
 
@@ -173,7 +181,7 @@ fun ChatScreen() {
                 }
 
                 MessageInputBar(
-                    onSend = { messageText ->
+                    onSend = { messageText, imageUri ->
                         coroutineScope.launch(Dispatchers.IO) {
                             try {
                                 fun createFormDataMap(request: MessageCreationRequest): Map<String, RequestBody> {
@@ -183,7 +191,7 @@ fun ChatScreen() {
                                         this.toRequestBody("text/plain".toMediaType())
 
                                     map["conversationId"] = request.conversationId.toString().toRequestBody()
-                                    map["content"] = request.content?.toRequestBody() as RequestBody
+                                    map["content"] = (request.content ?: "").toRequestBody()
                                     map["customerId"] = request.customerId.toString().toRequestBody()
                                     map["senderType"] = request.senderType.name.toRequestBody()
 
@@ -194,18 +202,46 @@ fun ChatScreen() {
                                     return map
                                 }
 
+                                fun createFilePart(context: Context, uri: android.net.Uri?): MultipartBody.Part? {
+                                    if (uri == null) return null
+                                    val cr = context.contentResolver
+                                    val mime = cr.getType(uri) ?: "application/octet-stream"
+
+                                    // Resolve filename
+                                    var filename = "upload"
+                                    val cursor = cr.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                                    cursor?.use {
+                                        if (it.moveToFirst()) {
+                                            val idx = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                                            if (idx >= 0) filename = it.getString(idx)
+                                        }
+                                    }
+
+                                    val inputStream = cr.openInputStream(uri) ?: return null
+                                    val bytes = inputStream.readBytes()
+                                    inputStream.close()
+
+                                    val requestBody = bytes.toRequestBody(mime.toMediaTypeOrNull()) // Use toMediaTypeOrNull for safety
+                                    return MultipartBody.Part.createFormData(
+                                        name = "file", // This 'name' must match the parameter name in your backend service
+                                        filename = filename,
+                                        body = requestBody
+                                    )
+                                }
+
                                 val request = MessageCreationRequest(
                                     conversationId = customer!!.conversation.id,
-                                    content = messageText,
+                                    content = messageText.ifBlank { null },
                                     customerId = customer!!.id,
                                     senderType = SenderType.CUSTOMER,
-                                    replyToId = replyToMessage?.id // set replyToId here
+                                    replyToId = replyToMessage?.id
                                 )
 
                                 val formData = createFormDataMap(request)
+                                val filePart = createFilePart(context, imageUri)
 
-                                RetrofitClient.apiService.sendMessage(formData)
-                                replyToMessage = null // clear reply after send
+                                RetrofitClient.apiService.sendMessage(formData, filePart)
+                                replyToMessage = null
 
                             } catch (e: Exception) {
                                 println("Send message error: ${e.message}")
@@ -223,7 +259,9 @@ fun ChatScreen() {
                 }
                 messages.isNotEmpty() -> {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(bottom = 60.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(bottom = 60.dp),
                         state = listState
                     ) {
                         items(messages, key = { it.id ?: "" }) { message ->
@@ -419,7 +457,7 @@ fun MessageBubble(
                         }
 
                         message.fileUrl?.let { fileUrl ->
-                            val resolvedUrl = fileUrl.replace("http://localhost:9000", "http://10.0.2.2:9000")
+                            val resolvedUrl = fileUrl.replace("http://localhost:9000", "http://192.168.81.217:9000")
                             AsyncImage(
                                 model = resolvedUrl,
                                 contentDescription = null,
@@ -489,16 +527,31 @@ fun MessageBubble(
 @Composable
 fun MessageInputBar(
     modifier: Modifier = Modifier,
-    onSend: (String) -> Unit
+    onSend: (String, android.net.Uri?) -> Unit
 ) {
     var messageText by remember { mutableStateOf("") }
+    var selectedImageUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    // Image picker launcher
+    val imagePicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent(),
+        onResult = { uri ->
+            selectedImageUri = uri
+        }
+    )
+
+
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(8.dp),
+            .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Attach image button
+        IconButton(onClick = { imagePicker.launch("image/*") }) {
+            Icon(Icons.Default.Add, contentDescription = "Attach image")
+        }
         TextField(
             value = messageText,
             onValueChange = { messageText = it },
@@ -509,25 +562,47 @@ fun MessageInputBar(
             keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(
                 onSend = {
-                    if (messageText.isNotBlank()) {
-                        onSend(messageText.trim())
+                    if (messageText.isNotBlank() || selectedImageUri != null) {
+                        onSend(messageText.trim(), selectedImageUri)
                         messageText = ""
+                        selectedImageUri = null
                     }
                 }
             )
         )
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(2.dp))
 
-        Button(
+
+
+        IconButton(
             onClick = {
-                if (messageText.isNotBlank()) {
-                    onSend(messageText.trim())
+                if (messageText.isNotBlank() || selectedImageUri != null) {
+                    onSend(messageText.trim(), selectedImageUri)
                     messageText = ""
+                    selectedImageUri = null
                 }
             }
         ) {
-            Text("Send")
+            Icon(Icons.Default.Send, contentDescription = "Send message")
+        }
+    }
+
+    // Optional preview of selected image
+    selectedImageUri?.let { uri ->
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp)) {
+            AsyncImage(
+                model = uri,
+                contentDescription = null,
+                modifier = Modifier
+                    .height(80.dp)
+                    .width(80.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Crop
+            )
         }
     }
 }
@@ -539,7 +614,7 @@ fun connectAndSubscribe(conversationId: UUID, onMessageReceived: (Message) -> Un
 
     val stompClient = Stomp.over(
         Stomp.ConnectionProvider.OKHTTP,
-        "ws://10.0.2.2:8080/ws-native"
+        "ws://192.168.81.217:8080/ws-native"
     )
 
     stompClient.connect()
@@ -760,7 +835,7 @@ suspend fun streamAnswer(
                 .toRequestBody("application/json".toMediaTypeOrNull())
 
             val request = Request.Builder()
-                .url("http://10.0.2.2:8000/ask")
+                .url("http://192.168.81.217:8000/ask")
                 .post(requestBody)
                 .build()
 

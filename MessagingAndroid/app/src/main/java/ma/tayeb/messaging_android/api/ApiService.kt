@@ -35,7 +35,7 @@ interface ApiService {
     @POST("/api/messages/send")
     suspend fun sendMessage(
         @PartMap formData: Map<String, @JvmSuppressWildcards RequestBody>,
-        @Part file: MultipartBody.Part? = null
+        @Part file: MultipartBody.Part?
     ): Response<Void>
 
     @PATCH("/api/messages/{messageId}")
