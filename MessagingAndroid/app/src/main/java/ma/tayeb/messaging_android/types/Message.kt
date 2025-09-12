@@ -13,6 +13,8 @@ data class Message(
     val replyTo: Message?,
     val fileUrl: String?,
     val fileType: String?,
+    val originalName: String?,
+    val size: Long?,
     val customer: Customer?,
     val agent: Agent?,
     val edited: Boolean,
