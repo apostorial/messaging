@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import lombok.RequiredArgsConstructor;
+import ma.tayeb.messaging_backend.dtos.file.FileResponse;
 import ma.tayeb.messaging_backend.services.interfaces.FileService;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -27,7 +28,7 @@ public class FileServiceImpl implements FileService {
     private String endpoint;
 
     @Override
-    public Map<String, String> upload(MultipartFile file) {
+    public FileResponse upload(MultipartFile file) {
         try {
             String fileId = UUID.randomUUID().toString();
             Map<String, String> metadata = new HashMap<>();
@@ -48,8 +49,15 @@ public class FileServiceImpl implements FileService {
             Map<String, String> result = new HashMap<>();
             result.put("fileUrl", fileUrl);
             result.put("fileType", file.getContentType());
+
+            FileResponse fileResponse = FileResponse.builder()
+                .fileUrl(fileUrl)
+                .fileType(file.getContentType())
+                .originalName(file.getOriginalFilename())
+                .size(file.getSize())
+                .build();
             
-            return result;
+            return fileResponse;
         } catch (IOException exception) {
             throw new RuntimeException("Failed to upload file:" + exception.getMessage());
         }

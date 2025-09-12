@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import lombok.RequiredArgsConstructor;
+import ma.tayeb.messaging_backend.dtos.file.FileResponse;
 import ma.tayeb.messaging_backend.dtos.message.MessageCreationRequest;
 import ma.tayeb.messaging_backend.entities.Agent;
 import ma.tayeb.messaging_backend.entities.Conversation;
@@ -45,6 +46,8 @@ public class MessageServiceImpl implements MessageService {
         Message replyTo = null;
         String fileUrl = null;
         String fileType = null;
+        String originalName = null;
+        Long size = null;
 
         if (request.getReplyToId() != null) {
             replyTo = messageInternalService.findById(request.getReplyToId());   
@@ -62,9 +65,11 @@ public class MessageServiceImpl implements MessageService {
         Conversation conversation = conversationInternalService.findById(request.getConversationId());
 
         if (file != null) {
-            Map<String, String> uploadResult = fileService.upload(file);
-            fileUrl = uploadResult.get("fileUrl");
-            fileType = uploadResult.get("fileType");
+            FileResponse fileResponse = fileService.upload(file);
+            fileUrl = fileResponse.getFileUrl();
+            fileType = fileResponse.getFileType();
+            originalName = fileResponse.getOriginalName();
+            size = fileResponse.getSize();
         }
 
         Message.MessageBuilder builder = Message.builder()
@@ -82,6 +87,8 @@ public class MessageServiceImpl implements MessageService {
         } else if (fileType.equals("application/pdf")) {
             builder.fileType(FileType.PDF);
         }
+        if (originalName != null) builder.originalName(originalName);
+        if (size != null) builder.size(size);
     }
 
         Message message = builder.build();

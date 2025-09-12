@@ -4,6 +4,8 @@ import java.util.Map;
 
 import org.springframework.web.multipart.MultipartFile;
 
+import ma.tayeb.messaging_backend.dtos.file.FileResponse;
+
 public interface FileService {
-    Map<String, String> upload(MultipartFile file);
+    FileResponse upload(MultipartFile file);
 }

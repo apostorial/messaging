@@ -40,6 +40,8 @@ public class Message {
 
     private String fileUrl;
     private FileType fileType;
+    private String originalName;
+    private Long size;
 
     @ManyToOne
     private Customer customer;
