@@ -1,6 +1,7 @@
 package ma.tayeb.messaging_backend.services.implementations.message;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -15,6 +16,7 @@ import ma.tayeb.messaging_backend.entities.Agent;
 import ma.tayeb.messaging_backend.entities.Conversation;
 import ma.tayeb.messaging_backend.entities.Customer;
 import ma.tayeb.messaging_backend.entities.Message;
+import ma.tayeb.messaging_backend.enums.FileType;
 import ma.tayeb.messaging_backend.enums.ReaderType;
 import ma.tayeb.messaging_backend.enums.SenderType;
 import ma.tayeb.messaging_backend.repositories.MessageRepository;
@@ -42,6 +44,7 @@ public class MessageServiceImpl implements MessageService {
     public void send(MessageCreationRequest request, MultipartFile file) {
         Message replyTo = null;
         String fileUrl = null;
+        String fileType = null;
 
         if (request.getReplyToId() != null) {
             replyTo = messageInternalService.findById(request.getReplyToId());   
@@ -59,7 +62,9 @@ public class MessageServiceImpl implements MessageService {
         Conversation conversation = conversationInternalService.findById(request.getConversationId());
 
         if (file != null) {
-            fileUrl = fileService.upload(file);
+            Map<String, String> uploadResult = fileService.upload(file);
+            fileUrl = uploadResult.get("fileUrl");
+            fileType = uploadResult.get("fileType");
         }
 
         Message.MessageBuilder builder = Message.builder()
@@ -71,7 +76,13 @@ public class MessageServiceImpl implements MessageService {
         if (agent != null) builder.agent(agent);
         if (replyTo != null) builder.replyTo(replyTo);
         if (fileUrl != null) builder.fileUrl(fileUrl);
-
+        if (fileType != null) {
+        if (fileType.startsWith("image/")) {
+            builder.fileType(FileType.IMAGE);
+        } else if (fileType.equals("application/pdf")) {
+            builder.fileType(FileType.PDF);
+        }
+    }
 
         Message message = builder.build();
         Message savedMessage = messageRepository.save(message);

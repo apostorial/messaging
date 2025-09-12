@@ -27,28 +27,31 @@ public class FileServiceImpl implements FileService {
     private String endpoint;
 
     @Override
-    public String upload(MultipartFile file) {
+    public Map<String, String> upload(MultipartFile file) {
         try {
             String fileId = UUID.randomUUID().toString();
-
             Map<String, String> metadata = new HashMap<>();
             metadata.put("original-filename", file.getOriginalFilename());
             metadata.put("content-type", file.getContentType());
-
+            
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                    .bucket(bucketName)
-                    .key(fileId)
-                    .contentType(file.getContentType())
-                    .metadata(metadata)
-                    .build();
-
+                .bucket(bucketName)
+                .key(fileId)
+                .contentType(file.getContentType())
+                .metadata(metadata)
+                .build();
+                
             s3Client.putObject(putObjectRequest, RequestBody.fromBytes(file.getBytes()));
+            
             String fileUrl = endpoint + "/" + bucketName + "/" + fileId;
-
-            return fileUrl;
+            
+            Map<String, String> result = new HashMap<>();
+            result.put("fileUrl", fileUrl);
+            result.put("fileType", file.getContentType());
+            
+            return result;
         } catch (IOException exception) {
             throw new RuntimeException("Failed to upload file:" + exception.getMessage());
         }
-    }
-    
+    }   
 }

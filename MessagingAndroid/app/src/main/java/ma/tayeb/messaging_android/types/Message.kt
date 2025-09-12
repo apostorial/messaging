@@ -4,6 +4,7 @@ import ma.tayeb.messaging_android.enums.SenderType
 import org.threeten.bp.LocalDateTime
 import java.util.UUID
 
+
 data class Message(
     val id: String?,
     var content: String?,
@@ -11,6 +12,7 @@ data class Message(
     val timestamp: String,
     val replyTo: Message?,
     val fileUrl: String?,
+    val fileType: String?,
     val customer: Customer?,
     val agent: Agent?,
     val edited: Boolean,
@@ -18,6 +20,7 @@ data class Message(
     val senderType: SenderType,
     val conversation: Conversation
 )
+
 
 data class MessageCreationRequest(
     val content: String?,

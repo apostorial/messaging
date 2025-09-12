@@ -1,11 +1,9 @@
 package ma.tayeb.messaging_android.api
 
 import ma.tayeb.messaging_android.enums.ReaderType
-import ma.tayeb.messaging_android.enums.SenderType
 import ma.tayeb.messaging_android.types.Customer
 import ma.tayeb.messaging_android.types.CustomerCreationRequest
 import ma.tayeb.messaging_android.types.Message
-import ma.tayeb.messaging_android.types.MessageCreationRequest
 import ma.tayeb.messaging_android.types.PaginatedResponse
 import okhttp3.MultipartBody
 import okhttp3.RequestBody

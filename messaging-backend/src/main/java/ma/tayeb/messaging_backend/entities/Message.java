@@ -16,6 +16,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import ma.tayeb.messaging_backend.enums.FileType;
 import ma.tayeb.messaging_backend.enums.SenderType;
 
 @Entity
@@ -38,6 +39,7 @@ public class Message {
     private Message replyTo;
 
     private String fileUrl;
+    private FileType fileType;
 
     @ManyToOne
     private Customer customer;

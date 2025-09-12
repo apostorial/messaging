@@ -13,7 +13,13 @@ interface ChatViewProps {
 }
 
 function ChatView({ conversation }: ChatViewProps) {
-  const { messages, setMessages, appendMessages, clearMessages, markMessagesAsRead, editMessage: editMessageInStore } = useMessageStore()
+  const messages = useMessageStore(state => state.messages)
+  const setMessages = useMessageStore(state => state.setMessages)
+  const appendMessages = useMessageStore(state => state.appendMessages)
+  const clearMessages = useMessageStore(state => state.clearMessages)
+  const markMessagesAsRead = useMessageStore(state => state.markMessagesAsRead)
+  const editMessageInStore = useMessageStore(state => state.editMessage)
+  const upsertMessage = useMessageStore(state => state.upsertMessage)
   const { agent } = useAgentStore()
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
@@ -22,6 +28,7 @@ function ChatView({ conversation }: ChatViewProps) {
   const [messageText, setMessageText] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [zoomedImage, setZoomedImage] = useState<string | null>(null)
+  const [zoomedPdf, setZoomedPdf] = useState<string | null>(null)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   const [replyToMessage, setReplyToMessage] = useState<any>(null)
@@ -84,17 +91,12 @@ function ChatView({ conversation }: ChatViewProps) {
             console.log("New message received:", message.body);
             try {
               const newMessage = JSON.parse(message.body);
-              const existingMessageIndex = messages.findIndex(m => m.id === newMessage.id);
-              if (existingMessageIndex !== -1) {
-                setMessages(messages.map((msg, index) => 
-                  index === existingMessageIndex ? newMessage : msg
-                ));
-              } else {
-                appendMessages([newMessage]);
+              if (!newMessage?.conversation?.id || newMessage.conversation.id !== conversation.id) {
+                return;
               }
+              upsertMessage(newMessage);
             } catch (error) {
               console.error("Error parsing message:", error);
-              loadMessages(0);
             }
           });
           
@@ -308,7 +310,11 @@ function ChatView({ conversation }: ChatViewProps) {
         {messages.map((message, index) => {
           const isCustomer = message.senderType === 'CUSTOMER'
           const isFirstMessage = index === 0
-          const hasImage = message.fileUrl;
+          const hasFile = !!message.fileUrl;
+          const normalizedFileType = (message as any).fileType ?? (message as any).filetype ?? null;
+          const extIsPdf = hasFile && message.fileUrl.toLowerCase().endsWith('.pdf');
+          const isPdfFile = normalizedFileType === 'PDF' || (!normalizedFileType && extIsPdf);
+          const isImageFile = normalizedFileType === 'IMAGE' || (!normalizedFileType && hasFile && !extIsPdf);
           const hasReply = message.replyTo;
           const isHighlighted = highlightedMessageId === message.id;
           
@@ -359,47 +365,66 @@ function ChatView({ conversation }: ChatViewProps) {
                         </span>
                       </div>
                       <div className="truncate">
-                        {hasReply.content || (hasReply.fileUrl ? '📷 Image' : '')}
+                        {hasReply.content || (hasReply.fileUrl ? (((hasReply as any).fileType ?? (hasReply as any).filetype) === 'PDF' || (hasReply.fileUrl.toLowerCase().endsWith('.pdf')) ? '📄 PDF' : '📷 Image') : '')}
                       </div>
                     </button>
                   )}
                   
-                  {hasImage && (
+                  {hasFile && (
                     <div className="mb-2">
-                      <img 
-                        src={message.fileUrl} 
-                        alt="Attachment"
-                        className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => handleImageClick(message.fileUrl)}
-                      />
+                      {isPdfFile ? (
+                        <div className="w-full group relative">
+                          <div 
+                            className="w-full h-64 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 cursor-pointer"
+                            onClick={() => setZoomedPdf(message.fileUrl!)}
+                            title="Click to view PDF"
+                          >
+                            <object data={message.fileUrl} type="application/pdf" className="w-full h-full">
+                              <a href={message.fileUrl} target="_blank" rel="noopener noreferrer" className="underline">Open PDF</a>
+                            </object>
+                          </div>
+                          <div className="absolute inset-x-0 bottom-2 flex justify-center">
+                            <span className="text-xs px-2 py-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity">Click to open</span>
+                          </div>
+                        </div>
+                      ) : isImageFile ? (
+                        <img 
+                          src={message.fileUrl} 
+                          alt="Attachment"
+                          className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => handleImageClick(message.fileUrl)}
+                        />
+                      ) : (
+                        <a href={message.fileUrl} target="_blank" rel="noopener noreferrer" className="underline">Open attachment</a>
+                      )}
                     </div>
                   )}
-                  {message.content ? (
-                    editingMessageId === message.id ? (
-                      <div className="flex items-center space-x-2">
-                        <input
-                          ref={editInputRef}
-                          type="text"
-                          value={editText}
-                          onChange={(e) => setEditText(e.target.value)}
-                          onKeyPress={handleEditKeyPress}
-                          className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          autoFocus
-                        />
-                        <button
-                          onClick={handleSaveEdit}
-                          className="p-1 text-green-600 hover:text-green-800"
-                        >
-                          <CheckIcon size={14} />
-                        </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          className="p-1 text-red-600 hover:text-red-800"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ) : (
+                  {editingMessageId === message.id ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        ref={editInputRef}
+                        type="text"
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        onKeyPress={handleEditKeyPress}
+                        className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleSaveEdit}
+                        className="p-1 text-green-600 hover:text-green-800"
+                      >
+                        <CheckIcon size={14} />
+                      </button>
+                      <button
+                        onClick={handleCancelEdit}
+                        className="p-1 text-red-600 hover:text-red-800"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    message.content ? (
                       <div className="flex items-center justify-between">
                         <p className="text-sm">{message.content}</p>
                         <div className="flex items-center space-x-1 ml-2">
@@ -423,28 +448,28 @@ function ChatView({ conversation }: ChatViewProps) {
                           )}
                         </div>
                       </div>
-                    )
-                  ) : (
-                    <div className="flex items-center justify-end space-x-1 mt-2">
-                      <button
-                        onClick={() => handleReplyToMessage(message)}
-                        className={`p-1 transition-colors ${
-                          isCustomer 
-                            ? 'text-gray-400 hover:text-gray-600' 
-                            : 'text-blue-100 hover:text-white'
-                        }`}
-                      >
-                        <Reply size={12} />
-                      </button>
-                      {!isCustomer && (
+                    ) : (
+                      <div className="flex items-center justify-end space-x-1 mt-2">
                         <button
-                          onClick={() => handleStartEdit(message)}
-                          className="p-1 text-white hover:text-gray-200 transition-colors"
+                          onClick={() => handleReplyToMessage(message)}
+                          className={`p-1 transition-colors ${
+                            isCustomer 
+                              ? 'text-gray-400 hover:text-gray-600' 
+                              : 'text-blue-100 hover:text-white'
+                          }`}
                         >
-                          <Edit2 size={12} />
+                          <Reply size={12} />
                         </button>
-                      )}
-                    </div>
+                        {!isCustomer && (
+                          <button
+                            onClick={() => handleStartEdit(message)}
+                            className="p-1 text-white hover:text-gray-200 transition-colors"
+                          >
+                            <Edit2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    )
                   )}
                   <div className={`flex items-center justify-between mt-1 ${
                     isCustomer ? 'text-gray-500' : 'text-blue-100'
@@ -571,6 +596,19 @@ function ChatView({ conversation }: ChatViewProps) {
               className="max-w-full max-h-full object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
             />
+          </div>
+        </div>
+      )}
+
+      {zoomedPdf && (
+        <div 
+          className="fixed inset-0 bg-black/75 flex items-center justify-center z-50"
+          onClick={() => setZoomedPdf(null)}
+        >
+          <div className="relative w-[90vw] h-[90vh] max-w-5xl p-2 bg-white rounded-lg shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <object data={zoomedPdf} type="application/pdf" className="w-full h-full">
+              <iframe src={zoomedPdf} className="w-full h-full" title="PDF preview" />
+            </object>
           </div>
         </div>
       )}

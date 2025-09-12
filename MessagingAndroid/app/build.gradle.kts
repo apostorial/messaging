@@ -49,6 +49,8 @@ dependencies {
     implementation(libs.rxjava2.rxandroid)
     implementation(libs.coil.compose.v250)
 
+    // Add Material Icons Extended
+    implementation("androidx.compose.material:material-icons-extended:1.5.4")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

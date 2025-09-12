@@ -8,6 +8,7 @@ export type Message = {
     timestamp: Date,
     replyTo: Message,
     fileUrl: string,
+    fileType: 'IMAGE' | 'PDF',
     customer: Customer,
     agent: Agent,
     edited: boolean,

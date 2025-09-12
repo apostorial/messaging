@@ -8,6 +8,7 @@ type MessageStore = {
   clearMessages: () => void
   markMessagesAsRead: (messageIds: string[]) => void
   editMessage: (messageId: string, content: string) => void
+  upsertMessage: (message: Message) => void
 }
 
 export const useMessageStore = create<MessageStore>((set) => ({
@@ -26,5 +27,14 @@ export const useMessageStore = create<MessageStore>((set) => ({
     messages: state.messages.map(message => 
       message.id === messageId ? { ...message, content, edited: true } : message
     )
-  }))
+  })),
+  upsertMessage: (message) => set(state => {
+    const existingIndex = state.messages.findIndex(m => m.id === message.id);
+    if (existingIndex !== -1) {
+      const updated = [...state.messages];
+      updated[existingIndex] = message;
+      return { messages: updated };
+    }
+    return { messages: [...state.messages, message] };
+  })
 })) 
