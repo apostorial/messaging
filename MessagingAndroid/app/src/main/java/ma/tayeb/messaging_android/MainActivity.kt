@@ -101,7 +101,7 @@ import java.util.UUID
 
 
 val request = CustomerCreationRequest(
-    fullName = "Customer",
+    fullName = "Amine Bennani",
     prospectId = "123",
     clientId = "456"
 )
@@ -457,7 +457,7 @@ fun MessageBubble(
                         }
 
                         message.fileUrl?.let { fileUrl ->
-                            val resolvedUrl = fileUrl.replace("http://localhost:9000", "http://192.168.81.217:9000")
+                            val resolvedUrl = fileUrl.replace("http://localhost:9000", "http://192.168.11.115:9000")
                             AsyncImage(
                                 model = resolvedUrl,
                                 contentDescription = null,
@@ -614,7 +614,7 @@ fun connectAndSubscribe(conversationId: UUID, onMessageReceived: (Message) -> Un
 
     val stompClient = Stomp.over(
         Stomp.ConnectionProvider.OKHTTP,
-        "ws://192.168.81.217:8080/ws-native"
+        "ws://192.168.11.115:8080/ws-native"
     )
 
     stompClient.connect()
@@ -835,7 +835,7 @@ suspend fun streamAnswer(
                 .toRequestBody("application/json".toMediaTypeOrNull())
 
             val request = Request.Builder()
-                .url("http://192.168.81.217:8000/ask")
+                .url("http://192.168.11.115:8000/ask")
                 .post(requestBody)
                 .build()
 
