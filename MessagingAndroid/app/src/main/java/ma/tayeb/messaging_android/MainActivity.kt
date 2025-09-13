@@ -533,8 +533,21 @@ fun ChatScreen(
                     }
                     if (idx == -1) {
                         messages.add(newMessage)
+                        // Mark as read when a new message is received
+                        coroutineScope.launch {
+                            try {
+                                RetrofitClient.apiService.markAsRead(
+                                    conversationId = response.conversation.id,
+                                    readerType = ReaderType.CUSTOMER
+                                )
+                            } catch (e: Exception) {
+                                println("Mark as read error: ${e.message}")
+                            }
+                        }
                     } else {
-                        messages[idx] = newMessage
+                        // Preserve the read status from the server when updating
+                        val existingMessage = messages[idx]
+                        messages[idx] = newMessage.copy(read = existingMessage.read || newMessage.read)
                     }
                 },
                 onReadIds = { ids ->
@@ -548,6 +561,7 @@ fun ChatScreen(
                 }
             )
 
+            // Initial mark as read when app starts
             RetrofitClient.apiService.markAsRead(
                 conversationId = response.conversation.id,
                 readerType = ReaderType.CUSTOMER
