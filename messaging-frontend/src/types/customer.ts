@@ -7,3 +7,9 @@ export type Customer = {
     clientId: string,
     conversation: Conversation
 }
+
+export type CustomerCreationRequest = {
+    fullName: string,
+    prospectId: string,
+    clientId: string
+}

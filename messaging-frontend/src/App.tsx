@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import './App.css'
 import { useAgentStore } from './stores/agent-store'
 import { findOrCreate } from './lib/services/agent-service'
-import ConversationList from './components/ConversationList'
+import BankCustomerView from './components/BankCustomerView'
 
 function App() {
   const { agent, setAgent } = useAgentStore()
@@ -14,7 +14,7 @@ function App() {
 
   return (
     <>
-      <ConversationList />
+      <BankCustomerView clientId="456" />
     </>
   )
 }

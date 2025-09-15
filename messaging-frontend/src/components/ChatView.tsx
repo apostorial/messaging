@@ -2,13 +2,13 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import { findAll, send, markAsRead, editMessage } from '../lib/services/message-service'
 import { useMessageStore } from '../stores/message-store'
 import { useAgentStore } from '../stores/agent-store'
-import type { ConversationResponse } from '../types/conversation'
+import type { Conversation } from '../types/conversation'
 import { UserRound, Send, Paperclip, Check, CheckCheck, Edit2, X, Check as CheckIcon, Reply, ArrowLeft } from 'lucide-react'
 import SockJS from 'sockjs-client'
 import { Client } from '@stomp/stompjs'
 
 interface ChatViewProps {
-  conversation: ConversationResponse | null
+  conversation: Conversation | null
   onBack: () => void
 }
 
