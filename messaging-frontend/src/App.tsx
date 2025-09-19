@@ -3,6 +3,7 @@ import './App.css'
 import { useAgentStore } from './stores/agent-store'
 import { findOrCreate } from './lib/services/agent-service'
 import BankCustomerView from './components/BankCustomerView'
+import ConversationList from './components/ConversationList'
 
 function App() {
   const { agent, setAgent } = useAgentStore()
@@ -15,6 +16,7 @@ function App() {
   return (
     <>
       <BankCustomerView clientId="456" />
+      {/* <ConversationList /> */}
     </>
   )
 }

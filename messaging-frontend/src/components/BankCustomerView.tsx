@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { findByClientId } from '../lib/services/customer-service'
 import ChatView from './ChatView'
 import { User, FileText, MessageCircle, Calendar, Mail, Phone, MapPin } from 'lucide-react'
-import Logo from '../assets/logo.svg'
+import Logo from '../assets/logo.png'
 import ProfilePlaceholder from '../assets/profile-placeholder.svg'
 import FrontIdImage from '../assets/front.jpg'
 import BackIdImage from '../assets/back.jpg'
@@ -24,7 +24,6 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
   const stompClientRef = useRef<Client | null>(null)
   const activeTabRef = useRef<TabType>('data')
 
-  // Dummy bank customer data - using customer state for fullName
   const bankCustomerData = {
     fullName: customer?.fullName || '',
     dateOfBirth: '1985-03-15',
@@ -75,7 +74,6 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
         const customerData = await findByClientId(clientId)
         console.log(customerData)
         
-        // Transform the customer data to include the conversation with owner information
         const transformedCustomer = {
           ...customerData,
           conversation: {
@@ -94,7 +92,6 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
       } catch (err) {
         console.error('Error fetching customer:', err)
         setError('Failed to load customer data')
-        // Set a fallback customer with name if API fails
         setCustomer({ fullName: 'Customer ' + clientId })
       } finally {
         setLoading(false)
@@ -104,7 +101,6 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
     fetchCustomer()
   }, [clientId])
 
-  // WebSocket connection for message notifications
   useEffect(() => {
     if (!customer?.conversation?.id) {
       console.log("No customer conversation ID, skipping WebSocket setup")
@@ -119,22 +115,18 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
       onConnect: () => {
         console.log("STOMP connected for notifications")
         
-        // Subscribe to conversation updates
         client.subscribe('/topic/conversation-updates', (message) => {
           console.log("Conversation update received:", message.body)
           try {
-            // The message body is just the conversation ID as a string (with quotes)
-            const conversationId = message.body.replace(/"/g, '') // Remove quotes
+            const conversationId = message.body.replace(/"/g, '')
             console.log("Received conversation ID:", conversationId)
             console.log("Current customer conversation ID:", customer?.conversation?.id)
             console.log("IDs match?", conversationId === customer?.conversation?.id)
             
-            // Check if this update is for our current customer's conversation
             if (customer?.conversation?.id && conversationId === customer.conversation.id) {
               console.log("New message notification for current customer!")
               console.log("Current active tab:", activeTabRef.current)
               
-              // Only increment count if we're NOT in the chat tab
               if (activeTabRef.current !== 'chat') {
                 setUnreadMessageCount(prev => {
                   const newCount = prev + 1
@@ -165,7 +157,6 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
     }
   }, [customer?.conversation?.id])
 
-  // Update activeTabRef and clear notification count when switching to chat tab
   useEffect(() => {
     activeTabRef.current = activeTab
     console.log("Active tab changed to:", activeTab)
@@ -205,14 +196,11 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
 
   return (
     <div className="h-screen bg-gray-100 flex">
-      {/* Left Sidebar */}
       <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-        {/* Logo */}
         <div className="p-6 border-b border-gray-200 flex justify-center">
           <img src={Logo} alt="Bank Logo" className="h-12" />
         </div>
 
-        {/* Navigation Tabs */}
         <div className="flex-1 p-4">
           <nav className="space-y-2">
             {tabs.map((tab) => {
@@ -223,7 +211,6 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
                   key={tab.id}
                   onClick={() => {
                     setActiveTab(tab.id)
-                    // Clear notification count immediately when clicking chat tab
                     if (tab.id === 'chat') {
                       console.log("Chat tab clicked - clearing notification count")
                       setUnreadMessageCount(0)
@@ -251,14 +238,11 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
         </div>
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
-        {/* Tab Content */}
         <div className="flex-1 overflow-hidden">
         {activeTab === 'data' && (
           <div className="h-full overflow-y-auto p-6">
             <div className="max-w-6xl mx-auto space-y-6">
-              {/* Personal Information */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center space-x-4 mb-6">
                   <img src={ProfilePlaceholder} alt="Profile" className="w-20 h-20 rounded-full" />
@@ -341,14 +325,12 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
                 </div>
               </div>
 
-              {/* Address Information */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                   <MapPin className="mr-2" size={20} />
                   Address Information
                 </h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Address Details */}
                   <div className="space-y-3">
                     <div className="space-y-2">
                       <p className="text-gray-900 font-medium">{bankCustomerData.address.street}</p>
@@ -377,7 +359,6 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
                     </div>
                   </div>
                   
-                  {/* OpenStreetMap Preview (No API Key Required) */}
                   <div className="h-48 rounded-lg overflow-hidden border border-gray-200">
                     <iframe
                       src={`https://www.openstreetmap.org/export/embed.html?bbox=-7.6500,33.5731,-7.5600,33.6131&layer=mapnik&marker=33.5931,-7.6067`}
@@ -391,7 +372,6 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
                 </div>
               </div>
 
-              {/* Account Information */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
                   <User className="mr-2" size={20} />
@@ -478,7 +458,6 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
                 </h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* National ID Front */}
                   <div className="space-y-3">
                     <h3 className="text-md font-medium text-gray-700">National ID - Front</h3>
                     <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -490,7 +469,6 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
                     </div>
                   </div>
 
-                  {/* National ID Back */}
                   <div className="space-y-3">
                     <h3 className="text-md font-medium text-gray-700">National ID - Back</h3>
                     <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -503,7 +481,6 @@ function BankCustomerView({ clientId }: BankCustomerViewProps) {
                   </div>
                 </div>
 
-                {/* Additional Documents Section */}
                 <div className="mt-8">
                   <h3 className="text-md font-medium text-gray-700 mb-4">Additional Documents</h3>
                   <div className="space-y-3">

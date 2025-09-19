@@ -343,7 +343,6 @@ function ChatView({ conversation }: ChatViewProps) {
                     ? 'bg-white border border-gray-200' 
                     : 'bg-blue-500 text-white'
                 }`}>
-                  {/* Sender name */}
                   <div className={`text-xs font-medium mb-1 ${
                     isCustomer ? 'text-gray-600' : 'text-blue-100'
                   }`}>

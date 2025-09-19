@@ -19,4 +19,4 @@ minio:
   endpoint: http://localhost:9000
   access-key: minioadmin
   secret-key: minioadmin
-  bucket-name: files
+  bucket-name: avatars

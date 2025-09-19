@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { findAll } from '../lib/services/conversation-service'
 import { useConversationStore } from '../stores/conversation-store'
-import logo from '../assets/logo.svg'
+import logo from '../assets/logo.png'
 import SockJS from 'sockjs-client'
 import { Client } from '@stomp/stompjs'
 import { UserRound } from 'lucide-react'

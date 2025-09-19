@@ -35,9 +35,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Reply
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
@@ -49,7 +46,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
@@ -69,7 +65,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -86,7 +84,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.core.graphics.component1
 import coil.compose.AsyncImage
 import com.google.gson.Gson
 import com.jakewharton.threetenabp.AndroidThreeTen
@@ -113,7 +110,11 @@ import org.threeten.bp.LocalDateTime
 import org.threeten.bp.format.DateTimeFormatter
 import ua.naiksoftware.stomp.Stomp
 import ua.naiksoftware.stomp.dto.LifecycleEvent
+import io.reactivex.disposables.CompositeDisposable
 import java.util.UUID
+import java.util.concurrent.TimeUnit
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.schedulers.Schedulers
 
 val request = CustomerCreationRequest(
     fullName = "Amine Bennani",
@@ -150,25 +151,21 @@ fun RagChatScreen(onBack: () -> Unit) {
     val listState = rememberLazyListState()
     val context = LocalContext.current
 
-    // List of chat messages: Pair<isUser:Boolean, content:String>
     val chatMessages = remember { mutableStateListOf<Pair<Boolean, String>>() }
 
     var currentQuestion by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Load saved messages on first launch
     LaunchedEffect(Unit) {
         loadChatMessages(context, chatMessages)
     }
 
-    // Save messages whenever they change
     DisposableEffect(chatMessages.size) {
         onDispose {
             saveChatMessages(context, chatMessages)
         }
     }
 
-    // Scroll to bottom when chatMessages changes
     LaunchedEffect(chatMessages.size) {
         if (chatMessages.isNotEmpty()) {
             listState.animateScrollToItem(chatMessages.size - 1)
@@ -181,7 +178,6 @@ fun RagChatScreen(onBack: () -> Unit) {
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.systemBars)
         ) {
-            // Top bar
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -195,7 +191,6 @@ fun RagChatScreen(onBack: () -> Unit) {
                 Spacer(modifier = Modifier.weight(1f))
             }
 
-            // Chat messages list
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -209,7 +204,6 @@ fun RagChatScreen(onBack: () -> Unit) {
                 }
             }
 
-            // Input bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -228,17 +222,14 @@ fun RagChatScreen(onBack: () -> Unit) {
                         onSend = {
                             if (currentQuestion.isNotBlank() && !isLoading) {
                                 coroutineScope.launch {
-                                    // Add user question to chat
                                     chatMessages.add(true to currentQuestion)
                                     val questionToSend = currentQuestion
                                     currentQuestion = ""
                                     isLoading = true
 
-                                    // Add empty answer message to update streaming chunks
                                     chatMessages.add(false to "")
 
                                     streamAnswer(questionToSend) { chunk ->
-                                        // Append chunk to last answer bubble
                                         val lastIndex = chatMessages.lastIndex
                                         val old = chatMessages[lastIndex]
                                         chatMessages[lastIndex] = old.copy(second = old.second + chunk)
@@ -280,13 +271,11 @@ fun RagChatScreen(onBack: () -> Unit) {
             }
         }
 
-        // Add blur effect for edge-to-edge areas
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.systemBars)
         ) {
-            // Top blur
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -296,12 +285,10 @@ fun RagChatScreen(onBack: () -> Unit) {
                         RoundedCornerShape(0.dp)
                     )
                     .graphicsLayer {
-                        // Use graphicsLayer for blur effect
                         alpha = 0.8f
                     }
             )
 
-            // Bottom blur
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -311,7 +298,6 @@ fun RagChatScreen(onBack: () -> Unit) {
                         RoundedCornerShape(0.dp)
                     )
                     .graphicsLayer {
-                        // Use graphicsLayer for blur effect
                         alpha = 0.8f
                     }
                     .align(Alignment.BottomCenter)
@@ -327,7 +313,7 @@ private suspend fun streamAnswer(question: String, onChunk: (String) -> Unit) {
                     .readTimeout(
                         0,
                         java.util.concurrent.TimeUnit.MILLISECONDS
-                    ) // no timeout on read
+                    )
                     .build()
 
                 val jsonBody = JSONObject().apply { put("question", question) }
@@ -336,7 +322,7 @@ private suspend fun streamAnswer(question: String, onChunk: (String) -> Unit) {
                     .toRequestBody("application/json".toMediaTypeOrNull())
 
                 val request = Request.Builder()
-                    .url("http://192.168.11.115:8000/ask")
+                    .url("http://192.168.11.124:8000/ask")
                     .post(requestBody)
                     .build()
 
@@ -353,7 +339,6 @@ private suspend fun streamAnswer(question: String, onChunk: (String) -> Unit) {
 
                         val chunk = buffer.readUtf8()
 
-                        // Parse JSON and extract only the "response" field
                         try {
                             val json = JSONObject(chunk)
                             val responseText = json.optString("response", "")
@@ -361,7 +346,6 @@ private suspend fun streamAnswer(question: String, onChunk: (String) -> Unit) {
                                 onChunk(responseText)
                             }
                         } catch (e: Exception) {
-                            // If JSON parsing fails, send the raw chunk
                             onChunk(chunk)
                         }
                     }
@@ -405,12 +389,10 @@ private fun parseBoldText(
             var lastIndex = 0
 
             regex.findAll(text).forEach { matchResult ->
-                // Add text before the bold section
                 if (matchResult.range.first > lastIndex) {
                     append(text.substring(lastIndex, matchResult.range.first))
                 }
 
-                // Add bold text
                 withStyle(
                     style = SpanStyle(
                         fontWeight = FontWeight.Bold,
@@ -423,7 +405,6 @@ private fun parseBoldText(
                 lastIndex = matchResult.range.last + 1
             }
 
-            // Add remaining text after the last bold section
             if (lastIndex < text.length) {
                 append(text.substring(lastIndex))
             }
@@ -437,7 +418,6 @@ private fun saveChatMessages(
 val prefs: SharedPreferences = context.getSharedPreferences("rag_chat", Context.MODE_PRIVATE)
 val editor = prefs.edit()
 
-// Convert messages to JSON format
 val messagesJson = messages.joinToString("|||") { (isUser, content) ->
     "$isUser||$content"
 }
@@ -473,7 +453,7 @@ fun MainScreen(onOpenRagChat: () -> Unit) {
     var selectedUriState by remember { mutableStateOf<android.net.Uri?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        ChatScreen(onFileSelectionChanged = { selectedUriState = it }) // Your existing main chat UI
+        ChatScreen(onFileSelectionChanged = { selectedUriState = it })
 
         FloatingRagBubble(
             onClick = onOpenRagChat,
@@ -512,8 +492,10 @@ fun ChatScreen(
     var isLoading by remember { mutableStateOf(true) }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     var replyToMessage by remember { mutableStateOf<Message?>(null) }
+    var webSocketManager by remember { mutableStateOf<WebSocketManager?>(null) }
 
     val listState = rememberLazyListState()
 
@@ -524,8 +506,8 @@ fun ChatScreen(
             val response = RetrofitClient.apiService.findOrCreate(request)
             customer = response
 
-            connectAndSubscribe(
-                response.conversation.id,
+            val manager = WebSocketManager(
+                conversationId = response.conversation.id,
                 onMessageReceived = { newMessage ->
                     val idxById = newMessage.id?.let { id -> messages.indexOfFirst { it.id == id } } ?: -1
                     val idx = if (idxById != -1) idxById else messages.indexOfFirst {
@@ -533,7 +515,6 @@ fun ChatScreen(
                     }
                     if (idx == -1) {
                         messages.add(newMessage)
-                        // Mark as read when a new message is received
                         coroutineScope.launch {
                             try {
                                 RetrofitClient.apiService.markAsRead(
@@ -545,13 +526,11 @@ fun ChatScreen(
                             }
                         }
                     } else {
-                        // Preserve the read status from the server when updating
                         val existingMessage = messages[idx]
                         messages[idx] = newMessage.copy(read = existingMessage.read || newMessage.read)
                     }
                 },
                 onReadIds = { ids ->
-                    // Update read flag for messages whose IDs are in the payload
                     for (i in messages.indices) {
                         val m = messages[i]
                         if (m.id != null && ids.contains(m.id)) {
@@ -560,8 +539,9 @@ fun ChatScreen(
                     }
                 }
             )
+            webSocketManager = manager
+            manager.connect()
 
-            // Initial mark as read when app starts
             RetrofitClient.apiService.markAsRead(
                 conversationId = response.conversation.id,
                 readerType = ReaderType.CUSTOMER
@@ -581,7 +561,31 @@ fun ChatScreen(
         }
     }
 
-// Scroll to bottom on new messages
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> {
+                    println("🟢 App resumed - reconnecting WebSocket")
+                    webSocketManager?.reconnect()
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    println("🟡 App paused - maintaining WebSocket connection")
+                }
+                Lifecycle.Event.ON_STOP -> {
+                    println("🔴 App stopped - pausing WebSocket")
+                }
+                else -> {}
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            webSocketManager?.disconnect()
+        }
+    }
+
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
@@ -592,10 +596,9 @@ fun ChatScreen(
         Scaffold(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.systemBars), // Add this line
+                .windowInsetsPadding(WindowInsets.systemBars),
             bottomBar = {
                 Column {
-                    // Reply preview above input bar if replying
                     replyToMessage?.let { message ->
                         ReplyPreview(
                             message = message,
@@ -603,7 +606,6 @@ fun ChatScreen(
                         )
                     }
 
-                    // Selected file preview above input bar
                     var selectedUriState by remember { mutableStateOf<android.net.Uri?>(null) }
                     SelectedFilePreview(
                         uri = selectedUriState,
@@ -640,7 +642,6 @@ fun ChatScreen(
                                         val cr = context.contentResolver
                                         val mime = cr.getType(uri) ?: "application/octet-stream"
 
-                                        // Resolve filename
                                         var filename = "upload"
                                         val cursor = cr.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
                                         cursor?.use {
@@ -654,9 +655,9 @@ fun ChatScreen(
                                         val bytes = inputStream.readBytes()
                                         inputStream.close()
 
-                                        val requestBody = bytes.toRequestBody(mime.toMediaTypeOrNull()) // Use toMediaTypeOrNull for safety
+                                        val requestBody = bytes.toRequestBody(mime.toMediaTypeOrNull())
                                         return MultipartBody.Part.createFormData(
-                                            name = "file", // This 'name' must match the parameter name in your backend service
+                                            name = "file",
                                             filename = filename,
                                             body = requestBody
                                         )
@@ -752,7 +753,6 @@ fun ChatScreen(
         }
 
 
-    // Full-screen image viewer
     fullImageUrl?.let { url ->
         Dialog(onDismissRequest = { fullImageUrl = null }) {
             Box(
@@ -782,7 +782,7 @@ suspend fun streamAnswer(
     withContext(Dispatchers.IO) {
         try {
             val client = OkHttpClient.Builder()
-                .readTimeout(0, java.util.concurrent.TimeUnit.MILLISECONDS) // no timeout on read
+                .readTimeout(0, java.util.concurrent.TimeUnit.MILLISECONDS)
                 .build()
 
             val jsonBody = JSONObject().apply { put("question", question) }
@@ -791,7 +791,7 @@ suspend fun streamAnswer(
                 .toRequestBody("application/json".toMediaTypeOrNull())
 
             val request = Request.Builder()
-                .url("http://192.168.11.115:8000/ask")
+                .url("http://192.168.11.124:8000/ask")
                 .post(requestBody)
                 .build()
 
@@ -808,7 +808,6 @@ suspend fun streamAnswer(
 
                     val chunk = buffer.readUtf8()
 
-                    // Parse JSON and extract only the "response" field
                     try {
                         val json = JSONObject(chunk)
                         val responseText = json.optString("response", "")
@@ -816,7 +815,6 @@ suspend fun streamAnswer(
                             onChunk(responseText)
                         }
                     } catch (e: Exception) {
-                        // If JSON parsing fails, send the raw chunk
                         onChunk(chunk)
                     }
                 }
@@ -859,7 +857,6 @@ fun MessageBubble(
                     .padding(4.dp)
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
-                    // Sender name + timestamp + action icons on the same line
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(bottom = 4.dp)
@@ -872,7 +869,6 @@ fun MessageBubble(
 
                         Spacer(modifier = Modifier.weight(1f))
 
-                        // Action icons on the right side
                         if (isCustomer) {
                             IconButton(
                                 onClick = { showEditDialog = true },
@@ -900,7 +896,6 @@ fun MessageBubble(
                         }
                     }
 
-                    // Reply preview inside bubble
                     message.replyTo?.let { replied ->
                         Card(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -925,15 +920,13 @@ fun MessageBubble(
                         }
                     }
 
-                    // Message content and optional image
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        // Only show message content if it's not empty
                         if (!message.content.isNullOrBlank()) {
                             Text(message.content ?: "")
                         }
 
                         message.fileUrl?.let { fileUrl ->
-                            val resolvedUrl = fileUrl.replace("http://localhost:9000", "http://192.168.11.115:9000")
+                            val resolvedUrl = fileUrl.replace("http://localhost:9000", "http://192.168.11.124:9000")
                             val context = LocalContext.current
                             val type = message.fileType
                             if (type == "IMAGE") {
@@ -969,7 +962,6 @@ fun MessageBubble(
                                         modifier = Modifier.padding(12.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        // PDF Icon - using a more appropriate icon
                                         Icon(
                                             Icons.Default.PictureAsPdf,
                                             contentDescription = "PDF",
@@ -978,8 +970,7 @@ fun MessageBubble(
                                                 .padding(end = 12.dp),
                                             tint = Color.Red
                                         )
-                                        
-                                        // PDF Info
+
                                         Column(
                                             modifier = Modifier.weight(1f)
                                         ) {
@@ -1000,7 +991,6 @@ fun MessageBubble(
                                 }
                             }
 
-                            // Read receipt below the attachment for customer messages
                             if (isCustomer) {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Row {
@@ -1036,7 +1026,6 @@ fun MessageBubble(
                                 }
                             }
                         } ?: run {
-                            // If no attachment but still customer message, show read receipt aligned right
                             if (isCustomer) {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Row {
@@ -1073,7 +1062,6 @@ fun MessageBubble(
                             }
                         }
 
-                        // Show timestamp for agent messages (non-customer messages)
                         if (!isCustomer) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Row {
@@ -1129,12 +1117,9 @@ fun MessageBubble(
 
 fun formatTimestamp(timestampStr: String): String {
         return try {
-            // Parse assuming ISO-8601 format (e.g. "2025-07-30T18:10:29")
             val parsed = LocalDateTime.parse(timestampStr, DateTimeFormatter.ISO_DATE_TIME)
-            // Format to something like "Jul 30, 18:10"
             parsed.format(DateTimeFormatter.ofPattern("MMM dd, HH:mm"))
         } catch (e: Exception) {
-            // Fallback if parsing fails
             println(e)
             timestampStr
         }
@@ -1155,7 +1140,6 @@ fun MessageInputBar(modifier: Modifier = Modifier, onSend: (String, Uri?) -> Uni
         var selectedImageUri by remember { mutableStateOf<android.net.Uri?>(null) }
         val context = LocalContext.current
 
-        // File picker (images and PDFs)
         val imagePicker = androidx.activity.compose.rememberLauncherForActivityResult(
             contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
             onResult = { uri ->
@@ -1180,7 +1164,6 @@ fun MessageInputBar(modifier: Modifier = Modifier, onSend: (String, Uri?) -> Uni
                 .padding(1.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Attach image button
             IconButton(onClick = { imagePicker.launch(arrayOf("image/*", "application/pdf")) }) {
                 Icon(Icons.Default.AttachFile, contentDescription = "Attach file")
             }
@@ -1339,81 +1322,171 @@ fun ReplyPreview(message: Message, onCancel: () -> Unit) {
     }
 }
 
-@SuppressLint("CheckResult")
-private fun connectAndSubscribe(
-    conversationId: UUID,
-    onMessageReceived: (Message) -> Unit,
-    onReadIds: (List<String>) -> Unit
+class WebSocketManager(
+    private val conversationId: UUID,
+    private val onMessageReceived: (Message) -> Unit,
+    private val onReadIds: (List<String>) -> Unit
 ) {
+    private var stompClient: ua.naiksoftware.stomp.StompClient? = null
+    private val compositeDisposable = CompositeDisposable()
+    private var isConnecting = false
+    private var shouldBeConnected = true
+    private var reconnectAttempts = 0
+    private val maxReconnectAttempts = 5
+    private val baseReconnectDelay = 2000L
+
+    @SuppressLint("CheckResult")
+    fun connect() {
+        if (isConnecting || stompClient?.isConnected == true) {
+            println("🔄 Already connecting or connected")
+            return
+        }
+
+        isConnecting = true
+        shouldBeConnected = true
         println("🚀 Starting connection for conversation: $conversationId")
 
-        val stompClient = Stomp.over(
+        stompClient = Stomp.over(
             Stomp.ConnectionProvider.OKHTTP,
-            "ws://192.168.11.115:8080/ws-native"
+            "ws://192.168.11.124:8080/ws-native"
         )
 
-        stompClient.connect()
+        stompClient?.connect()
         println("📞 Connect called")
-        println("🔍 Conversation ID: $conversationId")
 
-        stompClient.lifecycle()
-            .subscribe({ event ->
+        val lifecycleDisposable = stompClient?.lifecycle()
+            ?.subscribeOn(Schedulers.io())
+            ?.observeOn(AndroidSchedulers.mainThread())
+            ?.subscribe({ event ->
                 println("🔄 Lifecycle event: ${event.type}")
                 when (event.type) {
                     LifecycleEvent.Type.OPENED -> {
+                        isConnecting = false
+                        reconnectAttempts = 0
                         println("🔗 WebSocket Connected - Now subscribing to topics")
-
-                        // Subscribe to conversation messages (support both topic variants)
-                        val topicPathWithSlash = "/topic/conversation/$conversationId"
-                        val topicPathNoSlash = "/topic/conversation$conversationId"
-                        println("📡 Subscribing to: $topicPathWithSlash and $topicPathNoSlash")
-
-                        listOf(topicPathWithSlash, topicPathNoSlash).forEach { path ->
-                            stompClient.topic(path)
-                                .subscribe({ topicMessage ->
-                                    println("📨 Received message on $path: ${topicMessage.payload}")
-                                    try {
-                                        val gson = Gson()
-                                        val message = gson.fromJson(topicMessage.payload, Message::class.java)
-                                        onMessageReceived(message)
-                                    } catch (e: Exception) {
-                                        println("❌ Failed to parse message: ${e.message}")
-                                    }
-                                }, { error ->
-                                    println("❌ Topic subscription error ($path): ${error.message}")
-                                    error.printStackTrace()
-                                })
-                        }
-
-                        // Subscribe to read receipts
-                        val readTopicPath = "/topic/conversation/$conversationId/read"
-                        println("📡 Subscribing to: $readTopicPath")
-                        stompClient.topic(readTopicPath)
-                            .subscribe({ topicMessage ->
-                                println("📨 Received read IDs: ${topicMessage.payload}")
-                                try {
-                                    val gson = Gson()
-                                    val idsArray = gson.fromJson(topicMessage.payload, Array<String>::class.java)
-                                    onReadIds(idsArray.toList())
-                                } catch (e: Exception) {
-                                    println("❌ Failed to parse read IDs: ${e.message}")
-                                }
-                            }, { error ->
-                                println("❌ Read topic subscription error: ${error.message}")
-                                error.printStackTrace()
-                            })
+                        subscribeToTopics()
                     }
                     LifecycleEvent.Type.CLOSED -> {
+                        isConnecting = false
                         println("❌ WebSocket Closed")
+                        if (shouldBeConnected) {
+                            scheduleReconnect()
+                        }
                     }
                     LifecycleEvent.Type.ERROR -> {
+                        isConnecting = false
                         println("⚠️ WebSocket Error: ${event.exception}")
                         event.exception?.printStackTrace()
+                        if (shouldBeConnected) {
+                            scheduleReconnect()
+                        }
                     }
                     else -> println("🔄 Other lifecycle event: ${event.type}")
                 }
             }, { throwable ->
+                isConnecting = false
                 println("💥 Lifecycle error: ${throwable.message}")
                 throwable.printStackTrace()
+                if (shouldBeConnected) {
+                    scheduleReconnect()
+                }
             })
+
+        lifecycleDisposable?.let { compositeDisposable.add(it) }
     }
+
+    @SuppressLint("CheckResult")
+    private fun subscribeToTopics() {
+        stompClient?.let { client ->
+            val topicPathWithSlash = "/topic/conversation/$conversationId"
+            val topicPathNoSlash = "/topic/conversation$conversationId"
+            println("📡 Subscribing to: $topicPathWithSlash and $topicPathNoSlash")
+
+            listOf(topicPathWithSlash, topicPathNoSlash).forEach { path ->
+                val messageDisposable = client.topic(path)
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe({ topicMessage ->
+                        println("📨 Received message on $path: ${topicMessage.payload}")
+                        try {
+                            val gson = Gson()
+                            val message = gson.fromJson(topicMessage.payload, Message::class.java)
+                            onMessageReceived(message)
+                        } catch (e: Exception) {
+                            println("❌ Failed to parse message: ${e.message}")
+                        }
+                    }, { error ->
+                        println("❌ Topic subscription error ($path): ${error.message}")
+                        error.printStackTrace()
+                    })
+                compositeDisposable.add(messageDisposable)
+            }
+
+            val readTopicPath = "/topic/conversation/$conversationId/read"
+            println("📡 Subscribing to: $readTopicPath")
+            val readDisposable = client.topic(readTopicPath)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({ topicMessage ->
+                    println("📨 Received read IDs: ${topicMessage.payload}")
+                    try {
+                        val gson = Gson()
+                        val idsArray = gson.fromJson(topicMessage.payload, Array<String>::class.java)
+                        onReadIds(idsArray.toList())
+                    } catch (e: Exception) {
+                        println("❌ Failed to parse read IDs: ${e.message}")
+                    }
+                }, { error ->
+                    println("❌ Read topic subscription error: ${error.message}")
+                    error.printStackTrace()
+                })
+            compositeDisposable.add(readDisposable)
+        }
+    }
+
+    private fun scheduleReconnect() {
+        if (reconnectAttempts >= maxReconnectAttempts) {
+            println("🚫 Max reconnection attempts reached. Stopping reconnection.")
+            return
+        }
+
+        val delay = baseReconnectDelay * (1 shl reconnectAttempts)
+        reconnectAttempts++
+        
+        println("🔄 Scheduling reconnection attempt $reconnectAttempts in ${delay}ms")
+
+        val reconnectDisposable = io.reactivex.Observable.timer(delay, TimeUnit.MILLISECONDS)
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({
+                if (shouldBeConnected) {
+                    println("🔄 Attempting reconnection...")
+                    disconnect()
+                    connect()
+                }
+            }, { error ->
+                println("❌ Reconnection timer error: ${error.message}")
+            })
+        
+        compositeDisposable.add(reconnectDisposable)
+    }
+
+    fun reconnect() {
+        if (isConnecting) return
+        
+        println("🔄 Manual reconnection requested")
+        reconnectAttempts = 0
+        disconnect()
+        connect()
+    }
+
+    fun disconnect() {
+        shouldBeConnected = false
+        isConnecting = false
+        println("🔌 Disconnecting WebSocket")
+        
+        compositeDisposable.clear()
+        stompClient?.disconnect()
+        stompClient = null
+    }
+}

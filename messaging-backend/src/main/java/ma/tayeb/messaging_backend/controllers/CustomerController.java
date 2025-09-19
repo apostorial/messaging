@@ -9,6 +9,9 @@ import lombok.RequiredArgsConstructor;
 import ma.tayeb.messaging_backend.dtos.customer.CustomerCreationRequest;
 import ma.tayeb.messaging_backend.entities.Customer;
 import ma.tayeb.messaging_backend.services.interfaces.CustomerService;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -21,6 +24,11 @@ public class CustomerController {
     @PostMapping("/find-or-create")
     public ResponseEntity<Customer> findOrCreate(@RequestBody CustomerCreationRequest request) {
         return new ResponseEntity<>(customerService.findOrCreate(request), HttpStatus.OK);
+    }
+
+    @GetMapping("/{clientId}")
+    public ResponseEntity<Customer> findByClientId(@PathVariable String clientId) {
+        return new ResponseEntity<>(customerService.findByClientId(clientId), HttpStatus.OK);
     }
 }
     
