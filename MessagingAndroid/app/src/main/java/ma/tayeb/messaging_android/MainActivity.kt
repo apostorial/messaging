@@ -207,6 +207,7 @@ fun RagChatScreen(onBack: () -> Unit) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(Color(0xFFFFFFFF))
                     .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -217,6 +218,11 @@ fun RagChatScreen(onBack: () -> Unit) {
                     placeholder = { Text("Type your question") },
                     singleLine = true,
                     enabled = !isLoading,
+                    colors = androidx.compose.material3.TextFieldDefaults.colors(
+                        focusedContainerColor = Color(0xFFFFFFFF),
+                        unfocusedContainerColor = Color(0xFFFFFFFF),
+                        disabledContainerColor = Color(0xFFFFFFFF)
+                    ),
                     keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(
                         onSend = {
@@ -359,8 +365,8 @@ private suspend fun streamAnswer(question: String, onChunk: (String) -> Unit) {
 
 @Composable
 fun ChatBubble(isUser: Boolean, text: String) {
-    val backgroundColor = if (isUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
-    val textColor = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+    val backgroundColor = if (isUser) Color(0xFF2B7FFF) else Color(0xFFFFFFFF)
+    val textColor = if (isUser) Color.White else Color.Black
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -374,7 +380,8 @@ fun ChatBubble(isUser: Boolean, text: String) {
         ) {
             Text(
                 text = parseBoldText(text, textColor),
-                modifier = Modifier.padding(12.dp)
+                modifier = Modifier.padding(12.dp),
+                color = textColor
             )
         }
     }
@@ -390,7 +397,11 @@ private fun parseBoldText(
 
             regex.findAll(text).forEach { matchResult ->
                 if (matchResult.range.first > lastIndex) {
-                    append(text.substring(lastIndex, matchResult.range.first))
+                    withStyle(
+                        style = SpanStyle(color = defaultColor)
+                    ) {
+                        append(text.substring(lastIndex, matchResult.range.first))
+                    }
                 }
 
                 withStyle(
@@ -406,7 +417,11 @@ private fun parseBoldText(
             }
 
             if (lastIndex < text.length) {
-                append(text.substring(lastIndex))
+                withStyle(
+                    style = SpanStyle(color = defaultColor)
+                ) {
+                    append(text.substring(lastIndex))
+                }
             }
         }
 }
@@ -474,7 +489,9 @@ fun FloatingRagBubble(onClick: () -> Unit, hasFileSelected: Boolean = false) {
             onClick = onClick,
             modifier = Modifier.padding(
                 bottom = if (hasFileSelected) 140.dp else 80.dp
-            )
+            ),
+            containerColor = Color(0xFF2B7FFF),
+            contentColor = Color.White
         ) {
             Icon(Icons.Default.Search, contentDescription = "Ask FAQ")
         }
@@ -849,7 +866,7 @@ fun MessageBubble(
         ) {
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isCustomer) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
+                    containerColor = if (isCustomer) Color(0xFF2B7FFF) else Color(0xFFFFFFFF)
                 ),
                 modifier = Modifier
                     .wrapContentWidth()
@@ -864,7 +881,7 @@ fun MessageBubble(
                         Text(
                             text = senderName,
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (isCustomer) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                            color = if (isCustomer) Color.White.copy(alpha = 0.8f) else Color(0xFF6B7280)
                         )
 
                         Spacer(modifier = Modifier.weight(1f))
@@ -878,7 +895,7 @@ fun MessageBubble(
                                     Icons.Default.Edit,
                                     contentDescription = "Edit",
                                     modifier = Modifier.size(16.dp),
-                                    tint = if (isCustomer) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                                    tint = Color.White
                                 )
                             }
                         }
@@ -891,38 +908,52 @@ fun MessageBubble(
                                 Icons.Default.Reply,
                                 contentDescription = "Reply",
                                 modifier = Modifier.size(16.dp),
-                                tint = if (isCustomer) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                                tint = if (isCustomer) Color.White else Color(0xFF6B7280)
                             )
                         }
                     }
 
                     message.replyTo?.let { replied ->
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F4F6)),
                             modifier = Modifier
                                 .padding(bottom = 4.dp)
                                 .fillMaxWidth()
                         ) {
-                            val repliedPreview = when {
-                                !replied.content.isNullOrBlank() -> replied.content!!
-                                replied.fileType == "IMAGE" -> "🖼️ Image"
-                                replied.fileType == "PDF" -> "📄 PDF"
-                                else -> "Attachment"
+                            Column(modifier = Modifier.padding(6.dp)) {
+                                // Sender name
+                                val repliedSenderName = replied.agent?.fullName ?: replied.customer?.fullName ?: "Unknown"
+                                Text(
+                                    text = repliedSenderName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF9CA3AF),
+                                    modifier = Modifier.padding(bottom = 2.dp)
+                                )
+                                
+                                // Message content
+                                val repliedPreview = when {
+                                    !replied.content.isNullOrBlank() -> replied.content!!
+                                    replied.fileType == "IMAGE" -> "🖼️ Image"
+                                    replied.fileType == "PDF" -> "📄 PDF"
+                                    else -> "Attachment"
+                                }
+                                Text(
+                                    text = repliedPreview,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF6B7280)
+                                )
                             }
-                            Text(
-                                text = repliedPreview,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(6.dp),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                         }
                     }
 
                     Column(modifier = Modifier.fillMaxWidth()) {
                         if (!message.content.isNullOrBlank()) {
-                            Text(message.content ?: "")
+                            Text(
+                                text = message.content ?: "",
+                                color = if (isCustomer) Color.White else Color.Black
+                            )
                         }
 
                         message.fileUrl?.let { fileUrl ->
@@ -997,13 +1028,13 @@ fun MessageBubble(
                                     Text(
                                         text = formattedTime,
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                                        color = Color.White.copy(alpha = 0.7f),
                                         modifier = Modifier.padding(end = 8.dp)
                                     )
                                     if (message.edited) {
                                         Text(
                                             text = "(edited)",
-                                            style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray),
+                                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFD1D5DB)),
                                             modifier = Modifier.padding(end = 8.dp)
                                         )
                                     }
@@ -1032,13 +1063,13 @@ fun MessageBubble(
                                     Text(
                                         text = formattedTime,
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                                        color = Color.White.copy(alpha = 0.7f),
                                         modifier = Modifier.padding(end = 8.dp)
                                     )
                                     if (message.edited) {
                                         Text(
                                             text = "(edited)",
-                                            style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray),
+                                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFFD1D5DB)),
                                             modifier = Modifier.padding(end = 8.dp)
                                         )
                                     }
@@ -1068,7 +1099,7 @@ fun MessageBubble(
                                 Text(
                                     text = formattedTime,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                    color = Color(0xFF6B7280),
                                     modifier = Modifier.padding(end = 8.dp)
                                 )
                                 if (message.edited) {
@@ -1108,7 +1139,12 @@ fun MessageBubble(
                         value = editedContent,
                         onValueChange = { editedContent = it },
                         singleLine = false,
-                        label = { Text("New Content") }
+                        label = { Text("New Content") },
+                        colors = androidx.compose.material3.TextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFFFFFFFF),
+                            unfocusedContainerColor = Color(0xFFFFFFFF),
+                            disabledContainerColor = Color(0xFFFFFFFF)
+                        )
                     )
                 }
             )
@@ -1161,6 +1197,7 @@ fun MessageInputBar(modifier: Modifier = Modifier, onSend: (String, Uri?) -> Uni
         Row(
             modifier = modifier
                 .fillMaxWidth()
+                .background(Color(0xFFFFFFFF))
                 .padding(1.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1174,6 +1211,11 @@ fun MessageInputBar(modifier: Modifier = Modifier, onSend: (String, Uri?) -> Uni
                 placeholder = { Text("Type your message") },
                 maxLines = 4,
                 singleLine = false,
+                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                    focusedContainerColor = Color(0xFFFFFFFF),
+                    unfocusedContainerColor = Color(0xFFFFFFFF),
+                    disabledContainerColor = Color(0xFFFFFFFF)
+                ),
                 keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(
                     onSend = {
@@ -1290,17 +1332,18 @@ fun ReplyPreview(message: Message, onCancel: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F4F6))
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(8.dp)
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                val senderName = message.agent?.fullName ?: message.customer?.fullName ?: "Unknown"
                 Text(
-                    text = "Replying to:",
+                    text = "Replying to $senderName:",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color(0xFF6B7280)
                 )
                 val previewText = when {
                     !message.content.isNullOrBlank() -> message.content!!
@@ -1312,11 +1355,16 @@ fun ReplyPreview(message: Message, onCancel: () -> Unit) {
                     text = previewText,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF374151)
                 )
             }
             IconButton(onClick = onCancel) {
-                Icon(Icons.Default.Close, contentDescription = "Cancel reply")
+                Icon(
+                    Icons.Default.Close, 
+                    contentDescription = "Cancel reply",
+                    tint = Color(0xFF6B7280)
+                )
             }
         }
     }
